@@ -1,12 +1,18 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
-  DollarSign,
   UserPlus,
   Briefcase,
   Layers,
+  CalendarCheck,
+  Clock,
+  ListChecks,
+  TrendingUp,
+  Package,
+  Settings,
+  DollarSign,
 } from 'lucide-react';
 
 const navItems = [
@@ -19,14 +25,25 @@ const navItems = [
   {
     label: 'Management',
     items: [
-      { to: '/employees',    icon: Users,      label: 'Employees' },
-      { to: '/employees/new', icon: UserPlus,  label: 'Add Employee' },
+      { to: '/employees',     icon: Users,        label: 'Employees' },
+      { to: '/employees/new', icon: UserPlus,     label: 'Add Employee' },
+      { to: '/payroll',       icon: DollarSign,   label: 'Payroll' },
     ],
   },
   {
-    label: 'Payroll',
+    label: 'HR Tools',
     items: [
-      { to: '/payroll', icon: DollarSign, label: 'Payroll' },
+      { to: '/attendance',   icon: CalendarCheck, label: 'Attendance' },
+      { to: '/time-tracker', icon: Clock,         label: 'Time Tracker' },
+      { to: '/tasks',        icon: ListChecks,    label: 'Tasks' },
+      { to: '/performance',  icon: TrendingUp,    label: 'Performance' },
+      { to: '/assets',       icon: Package,       label: 'Assets' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { to: '/settings', icon: Settings, label: 'More Settings' },
     ],
   },
 ];
@@ -73,14 +90,14 @@ export default function Layout({ children }) {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="sidebar-footer-info">
+          <Link to="/hr-manager" className="sidebar-footer-info" id="nav-hr-manager-profile">
             <div className="avatar">A</div>
             <div className="footer-user-info">
               <p>Admin</p>
               <span>HR Manager</span>
             </div>
             <Layers size={14} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />
-          </div>
+          </Link>
         </div>
       </aside>
 

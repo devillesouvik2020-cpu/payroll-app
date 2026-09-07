@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Search, Edit2, Trash2, Plus, Mail, Briefcase } from 'lucide-react';
+import { Users, Search, Edit2, Trash2, Plus, Mail, Briefcase, Eye } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '../config';
 
@@ -131,7 +131,9 @@ export default function EmployeeList() {
                             {emp.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className="td-primary">{emp.name}</div>
+                            <Link to={`/employees/${emp._id}`} className="td-primary" style={{ textDecoration: 'none', color: 'var(--text-primary)' }}>
+                              {emp.name}
+                            </Link>
                             <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                               <Mail size={10} /> {emp.email}
                             </div>
@@ -157,6 +159,15 @@ export default function EmployeeList() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
+                          <Link
+                            to={`/employees/${emp._id}`}
+                            className="btn btn-ghost btn-icon btn-sm"
+                            title="View full profile"
+                            id={`view-profile-${emp._id}`}
+                            style={{ color: 'var(--color-primary-light)' }}
+                          >
+                            <Eye size={14} />
+                          </Link>
                           <Link
                             to={`/employees/edit/${emp._id}`}
                             className="btn btn-ghost btn-icon btn-sm"
