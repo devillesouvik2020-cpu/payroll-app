@@ -58,7 +58,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const { user, can } = useAuth();
+  const { user } = useAuth();
   const role = user?.role || 'employee';
 
   const now = new Date();
@@ -72,7 +72,6 @@ export default function Dashboard() {
     setError('');
     try {
       const curToday = new Date().toISOString().split('T')[0];
-      const empId = user?.employee?._id;
       const userRole = user?.role || 'employee';
 
       const promises = [axios.get(`${API_BASE}/stats`)];
@@ -210,340 +209,340 @@ export default function Dashboard() {
 
         {/* ── Employees in Office Today — admin/hr only ── */}
         {(role === 'admin' || role === 'hr') && (
-        <div className="card" style={{ marginBottom: 24 }} id="dashboard-worked-today-section">
-          {/* Card Header */}
-          <div className="card-header" style={{ flexWrap: 'wrap', gap: 14 }}>
-            <div className="card-title-group" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                background: 'linear-gradient(135deg,rgba(16,185,129,.25),rgba(6,182,212,.25))',
-                border: '1px solid rgba(16,185,129,.35)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#34d399', boxShadow: '0 0 16px rgba(16,185,129,.2)',
-              }}>
-                <UserCheck size={20} />
+          <div className="card" style={{ marginBottom: 24 }} id="dashboard-worked-today-section">
+            {/* Card Header */}
+            <div className="card-header" style={{ flexWrap: 'wrap', gap: 14 }}>
+              <div className="card-title-group" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                  background: 'linear-gradient(135deg,rgba(16,185,129,.25),rgba(6,182,212,.25))',
+                  border: '1px solid rgba(16,185,129,.35)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#34d399', boxShadow: '0 0 16px rgba(16,185,129,.2)',
+                }}>
+                  <UserCheck size={20} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <h3 style={{ margin: 0, fontSize: 16.5, fontWeight: 700 }}>
+                      Employees in Office Today
+                    </h3>
+                    <span className="badge badge-present" style={{ fontSize: 11.5 }}>
+                      <span className="badge-dot pulse-dot" />
+                      {workedEmployees.length} Entered Today
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Clock size={12} />
+                    <span><strong style={{ color: 'var(--text-secondary)' }}>{todayFormatted}</strong></span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <h3 style={{ margin: 0, fontSize: 16.5, fontWeight: 700 }}>
-                    Employees in Office Today
-                  </h3>
-                  <span className="badge badge-present" style={{ fontSize: 11.5 }}>
-                    <span className="badge-dot pulse-dot" />
-                    {workedEmployees.length} Entered Today
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {/* Search */}
+                <div style={{ position: 'relative', minWidth: 210 }}>
+                  <Search size={14} style={{
+                    position: 'absolute', left: 11, top: '50%',
+                    transform: 'translateY(-50%)', color: 'var(--text-muted)',
+                  }} />
+                  <input
+                    type="text"
+                    placeholder="Search employee…"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="form-input"
+                    style={{ paddingLeft: 34, paddingTop: 7, paddingBottom: 7, fontSize: 12.5, height: 34, borderRadius: 20 }}
+                  />
+                </div>
+                {/* Refresh */}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={fetchData}
+                  title="Refresh"
+                  style={{ height: 34 }}
+                >
+                  <RefreshCw size={13} />
+                </button>
+                <Link to="/attendance" className="card-action" style={{ fontSize: 12.5 }}>
+                  Attendance <ArrowRight size={13} />
+                </Link>
+              </div>
+            </div>
+
+            {/* Quick metrics strip */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))',
+              gap: 12,
+              padding: '14px 20px',
+              background: 'rgba(255,255,255,.02)',
+              borderTop: '1px solid var(--color-border)',
+              borderBottom: '1px solid var(--color-border)',
+            }}>
+              {[
+                { label: 'Worked Today', value: `${workedEmployees.length} Staff`, color: 'var(--text-primary)' },
+                { label: 'Still in Office', value: `${activeNow} Active`, color: '#34d399' },
+                { label: 'Shift Completed', value: `${completedShift} Left`, color: 'var(--text-secondary)' },
+                { label: 'Avg. Hours', value: `${avgHours} hrs`, color: '#60a5fa' },
+                { label: 'Total Hrs Today', value: `${totalHrsToday.toFixed(1)} hrs`, color: '#a78bfa' },
+              ].map(m => (
+                <div key={m.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {m.label}
+                  </span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: m.color }}>
+                    {loading ? '—' : m.value}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Clock size={12} />
-                  <span><strong style={{ color: 'var(--text-secondary)' }}>{todayFormatted}</strong></span>
-                </div>
-              </div>
+              ))}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              {/* Search */}
-              <div style={{ position: 'relative', minWidth: 210 }}>
-                <Search size={14} style={{
-                  position: 'absolute', left: 11, top: '50%',
-                  transform: 'translateY(-50%)', color: 'var(--text-muted)',
-                }} />
-                <input
-                  type="text"
-                  placeholder="Search employee…"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="form-input"
-                  style={{ paddingLeft: 34, paddingTop: 7, paddingBottom: 7, fontSize: 12.5, height: 34, borderRadius: 20 }}
-                />
-              </div>
-              {/* Refresh */}
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={fetchData}
-                title="Refresh"
-                style={{ height: 34 }}
-              >
-                <RefreshCw size={13} />
-              </button>
-              <Link to="/attendance" className="card-action" style={{ fontSize: 12.5 }}>
-                Attendance <ArrowRight size={13} />
-              </Link>
-            </div>
-          </div>
-
-          {/* Quick metrics strip */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))',
-            gap: 12,
-            padding: '14px 20px',
-            background: 'rgba(255,255,255,.02)',
-            borderTop: '1px solid var(--color-border)',
-            borderBottom: '1px solid var(--color-border)',
-          }}>
-            {[
-              { label: 'Worked Today', value: `${workedEmployees.length} Staff`, color: 'var(--text-primary)' },
-              { label: 'Still in Office', value: `${activeNow} Active`, color: '#34d399' },
-              { label: 'Shift Completed', value: `${completedShift} Left`, color: 'var(--text-secondary)' },
-              { label: 'Avg. Hours', value: `${avgHours} hrs`, color: '#60a5fa' },
-              { label: 'Total Hrs Today', value: `${totalHrsToday.toFixed(1)} hrs`, color: '#a78bfa' },
-            ].map(m => (
-              <div key={m.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {m.label}
-                </span>
-                <span style={{ fontSize: 17, fontWeight: 700, color: m.color }}>
-                  {loading ? '—' : m.value}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Table */}
-          <div className="card-body" style={{ padding: 0 }}>
-            {loading ? (
-              <div className="loading-container" style={{ padding: 30 }}>
-                <div className="spinner" />
-                <span>Loading today's work records…</span>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="empty-state" style={{ padding: '36px 20px' }}>
-                <div className="empty-state-icon"><Clock size={28} /></div>
-                <h4>
-                  {searchTerm ? `No results for "${searchTerm}"` : 'No employees have entered the office today'}
-                </h4>
-                <p>
-                  {searchTerm
-                    ? 'Try a different name, department, or employee ID.'
-                    : 'Employees who click "Enter Office" from the sidebar will appear here.'}
-                </p>
-                <div style={{ display: 'flex', gap: 10, marginTop: 12, justifyContent: 'center' }}>
-                  {searchTerm ? (
-                    <button className="btn btn-ghost" onClick={() => setSearchTerm('')}>
-                      Clear Search
-                    </button>
-                  ) : (
-                    <>
-                      <Link to="/time-tracker" className="btn btn-primary" style={{ fontSize: 12.5 }}>
-                        <Clock size={14} /> Log Hours
-                      </Link>
-                    </>
-                  )}
+            {/* Table */}
+            <div className="card-body" style={{ padding: 0 }}>
+              {loading ? (
+                <div className="loading-container" style={{ padding: 30 }}>
+                  <div className="spinner" />
+                  <span>Loading today's work records…</span>
                 </div>
-              </div>
-            ) : (
-              <div className="table-wrapper">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Employee</th>
-                      <th>Employee ID</th>
-                      <th>Department</th>
-                      <th>Check-In</th>
-                      <th>Check-Out</th>
-                      <th>Hours Worked</th>
-                      <th>Attendance</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((item) => {
-                      const emp = item.employee || {};
-                      const ab = attBadge(item.attendanceStatus);
-                      return (
-                        <tr key={item._id || emp._id}>
-                          {/* Employee */}
-                          <td>
-                            <div className="table-user">
-                              <div style={{ position: 'relative' }}>
-                                <div className="avatar">
-                                  {emp.name ? emp.name.charAt(0).toUpperCase() : '?'}
+              ) : filtered.length === 0 ? (
+                <div className="empty-state" style={{ padding: '36px 20px' }}>
+                  <div className="empty-state-icon"><Clock size={28} /></div>
+                  <h4>
+                    {searchTerm ? `No results for "${searchTerm}"` : 'No employees have entered the office today'}
+                  </h4>
+                  <p>
+                    {searchTerm
+                      ? 'Try a different name, department, or employee ID.'
+                      : 'Employees who click "Enter Office" from the sidebar will appear here.'}
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 12, justifyContent: 'center' }}>
+                    {searchTerm ? (
+                      <button className="btn btn-ghost" onClick={() => setSearchTerm('')}>
+                        Clear Search
+                      </button>
+                    ) : (
+                      <>
+                        <Link to="/time-tracker" className="btn btn-primary" style={{ fontSize: 12.5 }}>
+                          <Clock size={14} /> Log Hours
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="table-wrapper">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Employee ID</th>
+                        <th>Department</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Hours Worked</th>
+                        <th>Attendance</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((item) => {
+                        const emp = item.employee || {};
+                        const ab = attBadge(item.attendanceStatus);
+                        return (
+                          <tr key={item._id || emp._id}>
+                            {/* Employee */}
+                            <td>
+                              <div className="table-user">
+                                <div style={{ position: 'relative' }}>
+                                  <div className="avatar">
+                                    {emp.name ? emp.name.charAt(0).toUpperCase() : '?'}
+                                  </div>
+                                  {/* Online dot */}
+                                  <span style={{
+                                    position: 'absolute', bottom: -1, right: -1,
+                                    width: 9, height: 9, borderRadius: '50%',
+                                    background: item.isActive ? '#10b981' : '#94a3b8',
+                                    border: '2px solid var(--color-surface)',
+                                    boxShadow: item.isActive ? '0 0 6px #10b981' : 'none',
+                                  }} />
                                 </div>
-                                {/* Online dot */}
-                                <span style={{
-                                  position: 'absolute', bottom: -1, right: -1,
-                                  width: 9, height: 9, borderRadius: '50%',
-                                  background: item.isActive ? '#10b981' : '#94a3b8',
-                                  border: '2px solid var(--color-surface)',
-                                  boxShadow: item.isActive ? '0 0 6px #10b981' : 'none',
-                                }} />
+                                <div>
+                                  <div className="table-user-name">{emp.name || 'Unknown'}</div>
+                                  <div className="table-user-sub">{emp.designation || '—'}</div>
+                                </div>
                               </div>
-                              <div>
-                                <div className="table-user-name">{emp.name || 'Unknown'}</div>
-                                <div className="table-user-sub">{emp.designation || '—'}</div>
-                              </div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* ID */}
-                          <td><span className="td-mono">{emp.employeeId || '—'}</span></td>
+                            {/* ID */}
+                            <td><span className="td-mono">{emp.employeeId || '—'}</span></td>
 
-                          {/* Department */}
-                          <td>
-                            <span className="badge badge-purple" style={{ fontSize: 11 }}>
-                              {emp.department || 'General'}
-                            </span>
-                          </td>
-
-                          {/* Check-In */}
-                          <td>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#34d399', fontWeight: 600 }}>
-                              <LogIn size={13} />
-                              {formatTime12(item.loginTime)}
-                            </div>
-                          </td>
-
-                          {/* Check-Out */}
-                          <td>
-                            {item.logoutTime ? (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
-                                <LogOut size={13} style={{ color: 'var(--text-muted)' }} />
-                                {formatTime12(item.logoutTime)}
-                              </div>
-                            ) : (
-                              <span className="badge badge-present" style={{ background: 'rgba(16,185,129,.15)', color: '#34d399', fontSize: 11 }}>
-                                <span className="badge-dot pulse-dot" /> Active Now
+                            {/* Department */}
+                            <td>
+                              <span className="badge badge-purple" style={{ fontSize: 11 }}>
+                                {emp.department || 'General'}
                               </span>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Hours Worked */}
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <Timer size={13} style={{ color: item.isActive ? '#60a5fa' : 'var(--text-muted)' }} />
-                              <span style={{ fontWeight: 700, color: item.isActive ? '#60a5fa' : 'var(--text-primary)' }}>
-                                {item.workedHours != null ? `${item.workedHours} hrs` : '—'}
-                              </span>
-                              {item.isActive && (
-                                <span style={{ fontSize: 10, color: '#60a5fa', fontStyle: 'italic' }}>live</span>
+                            {/* Check-In */}
+                            <td>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#34d399', fontWeight: 600 }}>
+                                <LogIn size={13} />
+                                {formatTime12(item.loginTime)}
+                              </div>
+                            </td>
+
+                            {/* Check-Out */}
+                            <td>
+                              {item.logoutTime ? (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
+                                  <LogOut size={13} style={{ color: 'var(--text-muted)' }} />
+                                  {formatTime12(item.logoutTime)}
+                                </div>
+                              ) : (
+                                <span className="badge badge-present" style={{ background: 'rgba(16,185,129,.15)', color: '#34d399', fontSize: 11 }}>
+                                  <span className="badge-dot pulse-dot" /> Active Now
+                                </span>
                               )}
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Attendance status */}
-                          <td>
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '2px 9px', borderRadius: 20,
-                              fontSize: 11, fontWeight: 700,
-                              background: ab.bg, color: ab.color,
-                            }}>
-                              {ab.label}
-                            </span>
-                          </td>
+                            {/* Hours Worked */}
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <Timer size={13} style={{ color: item.isActive ? '#60a5fa' : 'var(--text-muted)' }} />
+                                <span style={{ fontWeight: 700, color: item.isActive ? '#60a5fa' : 'var(--text-primary)' }}>
+                                  {item.workedHours != null ? `${item.workedHours} hrs` : '—'}
+                                </span>
+                                {item.isActive && (
+                                  <span style={{ fontSize: 10, color: '#60a5fa', fontStyle: 'italic' }}>live</span>
+                                )}
+                              </div>
+                            </td>
 
-                          {/* Session status */}
-                          <td>
-                            {item.isActive ? (
-                              <span className="badge badge-present">
-                                <span className="badge-dot pulse-dot" /> In Office
+                            {/* Attendance status */}
+                            <td>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '2px 9px', borderRadius: 20,
+                                fontSize: 11, fontWeight: 700,
+                                background: ab.bg, color: ab.color,
+                              }}>
+                                {ab.label}
                               </span>
-                            ) : (
-                              <span className="badge" style={{ background: 'rgba(148,163,184,.12)', color: '#94a3b8' }}>
-                                <span className="badge-dot" /> Left Office
-                              </span>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Action */}
-                          <td>
-                            <Link
-                              to={emp._id ? `/employees/${emp._id}` : '/employees'}
-                              className="btn btn-ghost"
-                              style={{ padding: '4px 10px', fontSize: 11.5, height: 28 }}
-                            >
-                              Profile <ExternalLink size={12} />
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                            {/* Session status */}
+                            <td>
+                              {item.isActive ? (
+                                <span className="badge badge-present">
+                                  <span className="badge-dot pulse-dot" /> In Office
+                                </span>
+                              ) : (
+                                <span className="badge" style={{ background: 'rgba(148,163,184,.12)', color: '#94a3b8' }}>
+                                  <span className="badge-dot" /> Left Office
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Action */}
+                            <td>
+                              <Link
+                                to={emp._id ? `/employees/${emp._id}` : '/employees'}
+                                className="btn btn-ghost"
+                                style={{ padding: '4px 10px', fontSize: 11.5, height: 28 }}
+                              >
+                                Profile <ExternalLink size={12} />
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
         )}
 
         {/* ── Recent Payrolls — admin/hr only ── */}
         {(role === 'admin' || role === 'hr') && (
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title-group">
-              <DollarSign size={18} style={{ color: 'var(--color-primary-light)' }} />
-              <h3>Recent Payroll Records</h3>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title-group">
+                <DollarSign size={18} style={{ color: 'var(--color-primary-light)' }} />
+                <h3>Recent Payroll Records</h3>
+              </div>
+              <Link to="/payroll" className="card-action" id="dashboard-all-payrolls-link">
+                View All <ArrowRight size={13} />
+              </Link>
             </div>
-            <Link to="/payroll" className="card-action" id="dashboard-all-payrolls-link">
-              View All <ArrowRight size={13} />
-            </Link>
-          </div>
 
-          <div className="card-body" style={{ padding: 0 }}>
-            {loading ? (
-              <div className="loading-container">
-                <div className="spinner" /><span>Loading recent payrolls…</span>
-              </div>
-            ) : recentPayrolls.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon"><DollarSign size={28} /></div>
-                <h4>No payrolls generated yet</h4>
-                <p>Generate your first payroll from the Payroll view to see records here.</p>
-                <Link to="/payroll" className="btn btn-primary" style={{ marginTop: 12 }}>
-                  Generate Payroll
-                </Link>
-              </div>
-            ) : (
-              <div className="table-wrapper">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Employee</th>
-                      <th>Period</th>
-                      <th>Basic Pay</th>
-                      <th>Allowances</th>
-                      <th>Deductions</th>
-                      <th>Net Salary</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentPayrolls.map((p) => {
-                      const emp = p.employee;
-                      return (
-                        <tr key={p._id}>
-                          <td>
-                            <div className="table-user">
-                              <div className="avatar">
-                                {emp?.name ? emp.name.charAt(0).toUpperCase() : '?'}
+            <div className="card-body" style={{ padding: 0 }}>
+              {loading ? (
+                <div className="loading-container">
+                  <div className="spinner" /><span>Loading recent payrolls…</span>
+                </div>
+              ) : recentPayrolls.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-state-icon"><DollarSign size={28} /></div>
+                  <h4>No payrolls generated yet</h4>
+                  <p>Generate your first payroll from the Payroll view to see records here.</p>
+                  <Link to="/payroll" className="btn btn-primary" style={{ marginTop: 12 }}>
+                    Generate Payroll
+                  </Link>
+                </div>
+              ) : (
+                <div className="table-wrapper">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Period</th>
+                        <th>Basic Pay</th>
+                        <th>Allowances</th>
+                        <th>Deductions</th>
+                        <th>Net Salary</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentPayrolls.map((p) => {
+                        const emp = p.employee;
+                        return (
+                          <tr key={p._id}>
+                            <td>
+                              <div className="table-user">
+                                <div className="avatar">
+                                  {emp?.name ? emp.name.charAt(0).toUpperCase() : '?'}
+                                </div>
+                                <div>
+                                  <div className="table-user-name">{emp?.name || 'Unknown'}</div>
+                                  <div className="table-user-sub">{emp?.designation || '—'}</div>
+                                </div>
                               </div>
-                              <div>
-                                <div className="table-user-name">{emp?.name || 'Unknown'}</div>
-                                <div className="table-user-sub">{emp?.designation || '—'}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 500 }}>{MONTH_NAMES[p.month]} {p.year}</td>
-                          <td>{formatCurrency(p.basicPay)}</td>
-                          <td style={{ color: '#34d399' }}>+{formatCurrency(p.allowances)}</td>
-                          <td style={{ color: '#fb7185' }}>−{formatCurrency(p.deductions)}</td>
-                          <td style={{ fontWeight: 700 }}>{formatCurrency(p.netSalary)}</td>
-                          <td>
-                            <span className={`badge badge-${p.status}`}>
-                              <span className="badge-dot" />
-                              {p.status === 'paid' ? 'Paid' : 'Pending'}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                            </td>
+                            <td style={{ fontWeight: 500 }}>{MONTH_NAMES[p.month]} {p.year}</td>
+                            <td>{formatCurrency(p.basicPay)}</td>
+                            <td style={{ color: '#34d399' }}>+{formatCurrency(p.allowances)}</td>
+                            <td style={{ color: '#fb7185' }}>−{formatCurrency(p.deductions)}</td>
+                            <td style={{ fontWeight: 700 }}>{formatCurrency(p.netSalary)}</td>
+                            <td>
+                              <span className={`badge badge-${p.status}`}>
+                                <span className="badge-dot" />
+                                {p.status === 'paid' ? 'Paid' : 'Pending'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
         )}
 
         {/* ── Employee self-service dashboard ── */}

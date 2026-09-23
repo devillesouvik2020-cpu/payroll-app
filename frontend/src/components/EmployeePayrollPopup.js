@@ -1,25 +1,25 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  X, Calendar, Clock, TrendingUp, DollarSign, Download,
-  CheckCircle, AlertCircle, User, Briefcase, ChevronLeft,
+  X, Calendar, Clock, TrendingUp, DollarSign,
+  CheckCircle, AlertCircle, Briefcase, ChevronLeft,
   ChevronRight, Printer, FileText, Loader,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '../config';
 
 const MONTHS = [
-  { value: 1,  label: 'January'   },
-  { value: 2,  label: 'February'  },
-  { value: 3,  label: 'March'     },
-  { value: 4,  label: 'April'     },
-  { value: 5,  label: 'May'       },
-  { value: 6,  label: 'June'      },
-  { value: 7,  label: 'July'      },
-  { value: 8,  label: 'August'    },
-  { value: 9,  label: 'September' },
-  { value: 10, label: 'October'   },
-  { value: 11, label: 'November'  },
-  { value: 12, label: 'December'  },
+  { value: 1, label: 'January' },
+  { value: 2, label: 'February' },
+  { value: 3, label: 'March' },
+  { value: 4, label: 'April' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'June' },
+  { value: 7, label: 'July' },
+  { value: 8, label: 'August' },
+  { value: 9, label: 'September' },
+  { value: 10, label: 'October' },
+  { value: 11, label: 'November' },
+  { value: 12, label: 'December' },
 ];
 
 function formatCurrency(n) {
@@ -28,11 +28,11 @@ function formatCurrency(n) {
 
 function statusColor(status) {
   switch (status) {
-    case 'present':  return { bg: 'rgba(52,211,153,0.12)', color: '#34d399', label: 'Present' };
-    case 'late':     return { bg: 'rgba(251,191,36,0.12)',  color: '#fbbf24', label: 'Late'    };
-    case 'absent':   return { bg: 'rgba(251,113,133,0.12)', color: '#fb7185', label: 'Absent'  };
-    case 'leave':    return { bg: 'rgba(129,140,248,0.12)', color: '#818cf8', label: 'Leave'   };
-    default:         return { bg: 'rgba(148,163,184,0.1)',  color: '#94a3b8', label: status || '—' };
+    case 'present': return { bg: 'rgba(52,211,153,0.12)', color: '#34d399', label: 'Present' };
+    case 'late': return { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', label: 'Late' };
+    case 'absent': return { bg: 'rgba(251,113,133,0.12)', color: '#fb7185', label: 'Absent' };
+    case 'leave': return { bg: 'rgba(129,140,248,0.12)', color: '#818cf8', label: 'Leave' };
+    default: return { bg: 'rgba(148,163,184,0.1)', color: '#94a3b8', label: status || '—' };
   }
 }
 
@@ -40,7 +40,7 @@ function statusColor(status) {
 function PrintablePayslip({ payslip, monthLabel, companyName = 'PayrollPro Inc.' }) {
   const {
     employee: emp, basicPay, allowances, deductions, netSalary,
-    status, month, year,
+    status, year,
     hoursWorked, standardHours, overtimeHours, overtimePay, hourlyRate,
   } = payslip;
 
@@ -80,11 +80,11 @@ function PrintablePayslip({ payslip, monthLabel, companyName = 'PayrollPro Inc.'
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px', marginBottom: 20, padding: '14px 16px', background: '#f8fafc', borderRadius: 8 }}>
         {[
           ['Employee Name', emp?.name],
-          ['Employee ID',   emp?.employeeId],
-          ['Designation',   emp?.designation],
-          ['Department',    emp?.department],
-          ['Email',         emp?.email],
-          ['Pay Period',    `${monthLabel} ${year}`],
+          ['Employee ID', emp?.employeeId],
+          ['Designation', emp?.designation],
+          ['Department', emp?.department],
+          ['Email', emp?.email],
+          ['Pay Period', `${monthLabel} ${year}`],
         ].map(([k, v]) => (
           <div key={k}>
             <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>{k}</div>
@@ -97,10 +97,10 @@ function PrintablePayslip({ payslip, monthLabel, companyName = 'PayrollPro Inc.'
       {hoursWorked > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16, padding: '12px 14px', background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd' }}>
           {[
-            ['Hours Worked',    `${hoursWorked}h`],
-            ['Standard Hours',  `${standardHours}h`],
-            ['Overtime Hours',  `${overtimeHours || 0}h`],
-            ['Hourly Rate',     `₹${hourlyRate || 0}/h`],
+            ['Hours Worked', `${hoursWorked}h`],
+            ['Standard Hours', `${standardHours}h`],
+            ['Overtime Hours', `${overtimeHours || 0}h`],
+            ['Hourly Rate', `₹${hourlyRate || 0}/h`],
           ].map(([k, v]) => (
             <div key={k} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 10, color: '#0369a1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{k}</div>
@@ -169,16 +169,16 @@ function PrintablePayslip({ payslip, monthLabel, companyName = 'PayrollPro Inc.'
 export default function EmployeePayrollPopup({ employee, initialMonth, initialYear, onClose, onPayrollGenerated }) {
   const now = new Date();
   const [month, setMonth] = useState(initialMonth || now.getMonth() + 1);
-  const [year,  setYear]  = useState(initialYear  || now.getFullYear());
+  const [year, setYear] = useState(initialYear || now.getFullYear());
 
   const [attendanceData, setAttendanceData] = useState(null);
-  const [payslipData,    setPayslipData]    = useState(null);
-  const [loadingAtt,     setLoadingAtt]     = useState(false);
-  const [loadingPay,     setLoadingPay]     = useState(false);
-  const [generating,     setGenerating]     = useState(false);
-  const [markingPaid,    setMarkingPaid]    = useState(false);
-  const [error,          setError]          = useState('');
-  const [success,        setSuccess]        = useState('');
+  const [payslipData, setPayslipData] = useState(null);
+  const [loadingAtt, setLoadingAtt] = useState(false);
+  const [loadingPay, setLoadingPay] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // Tab: 'attendance' | 'payslip'
   const [activeTab, setActiveTab] = useState('attendance');
@@ -273,17 +273,17 @@ export default function EmployeePayrollPopup({ employee, initialMonth, initialYe
 
   const prevMonth = () => {
     if (month === 1) { setMonth(12); setYear(y => y - 1); }
-    else              { setMonth(m => m - 1); }
+    else { setMonth(m => m - 1); }
   };
   const nextMonth = () => {
     if (month === 12) { setMonth(1); setYear(y => y + 1); }
-    else               { setMonth(m => m + 1); }
+    else { setMonth(m => m + 1); }
   };
 
   const monthLabel = MONTHS.find(m => m.value === month)?.label || '';
-  const summary    = attendanceData?.summary;
-  const days       = attendanceData?.days || [];
-  const emp        = attendanceData?.employee || employee;
+  const summary = attendanceData?.summary;
+  const days = attendanceData?.days || [];
+  const emp = attendanceData?.employee || employee;
 
   return (
     <div
@@ -360,7 +360,7 @@ export default function EmployeePayrollPopup({ employee, initialMonth, initialYe
         }}>
           {[
             { id: 'attendance', icon: <Calendar size={14} />, label: 'Attendance' },
-            { id: 'payslip',    icon: <FileText  size={14} />, label: 'Payslip'    },
+            { id: 'payslip', icon: <FileText size={14} />, label: 'Payslip' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -387,8 +387,8 @@ export default function EmployeePayrollPopup({ employee, initialMonth, initialYe
         {/* ── Alerts ── */}
         {(error || success) && (
           <div style={{ padding: '10px 24px', flexShrink: 0 }}>
-            {error   && <div className="alert alert-error"   style={{ marginBottom: 0 }}><AlertCircle size={14}/> {error}</div>}
-            {success && <div className="alert alert-success" style={{ marginBottom: 0 }}><CheckCircle  size={14}/> {success}</div>}
+            {error && <div className="alert alert-error" style={{ marginBottom: 0 }}><AlertCircle size={14} /> {error}</div>}
+            {success && <div className="alert alert-success" style={{ marginBottom: 0 }}><CheckCircle size={14} /> {success}</div>}
           </div>
         )}
 
@@ -407,12 +407,12 @@ export default function EmployeePayrollPopup({ employee, initialMonth, initialYe
                   {/* Summary cards */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12, marginBottom: 20 }}>
                     {[
-                      { label: 'Present',       value: summary?.presentDays   ?? '—', color: '#34d399', icon: <CheckCircle size={16}/> },
-                      { label: 'Absent',        value: summary?.absentDays    ?? '—', color: '#fb7185', icon: <X size={16}/>           },
-                      { label: 'Leave',         value: summary?.leaveDays     ?? '—', color: '#818cf8', icon: <Calendar size={16}/>    },
-                      { label: 'Total Hours',   value: summary ? `${summary.totalWorkingHours}h` : '—', color: '#38bdf8', icon: <Clock size={16}/>       },
-                      { label: 'Extra Hours',   value: summary ? `${summary.totalExtraHours}h`   : '—', color: '#fb923c', icon: <TrendingUp size={16}/>  },
-                      { label: 'Working Days',  value: summary ? `${summary.presentDays}/${summary.workingDaysInMonth}` : '—', color: '#a78bfa', icon: <Briefcase size={16}/> },
+                      { label: 'Present', value: summary?.presentDays ?? '—', color: '#34d399', icon: <CheckCircle size={16} /> },
+                      { label: 'Absent', value: summary?.absentDays ?? '—', color: '#fb7185', icon: <X size={16} /> },
+                      { label: 'Leave', value: summary?.leaveDays ?? '—', color: '#818cf8', icon: <Calendar size={16} /> },
+                      { label: 'Total Hours', value: summary ? `${summary.totalWorkingHours}h` : '—', color: '#38bdf8', icon: <Clock size={16} /> },
+                      { label: 'Extra Hours', value: summary ? `${summary.totalExtraHours}h` : '—', color: '#fb923c', icon: <TrendingUp size={16} /> },
+                      { label: 'Working Days', value: summary ? `${summary.presentDays}/${summary.workingDaysInMonth}` : '—', color: '#a78bfa', icon: <Briefcase size={16} /> },
                     ].map(c => (
                       <div key={c.label} style={{
                         background: 'var(--color-surface)',
@@ -517,14 +517,14 @@ export default function EmployeePayrollPopup({ employee, initialMonth, initialYe
                     marginBottom: 24,
                   }}>
                     {[
-                      { label: 'Hours Worked',   value: payslipData.hoursWorked   ? `${payslipData.hoursWorked}h`  : '—', color: '#38bdf8' },
-                      { label: 'Std. Hours',     value: payslipData.standardHours  ? `${payslipData.standardHours}h` : '—', color: '#818cf8' },
-                      { label: 'Overtime Hrs',   value: payslipData.overtimeHours  ? `${payslipData.overtimeHours}h` : '0h', color: '#fb923c' },
-                      { label: 'Hourly Rate',    value: payslipData.hourlyRate     ? `₹${payslipData.hourlyRate}/h`  : '—', color: '#a78bfa' },
-                      { label: 'Earned Basic',   value: formatCurrency(payslipData.basicPay),   color: '#a78bfa' },
-                      { label: 'Overtime Pay',   value: formatCurrency(payslipData.overtimePay || 0), color: '#fb923c' },
-                      { label: 'Allowances',     value: formatCurrency(payslipData.allowances),  color: '#34d399' },
-                      { label: 'Net Salary',     value: formatCurrency(payslipData.netSalary),   color: '#38bdf8', big: true },
+                      { label: 'Hours Worked', value: payslipData.hoursWorked ? `${payslipData.hoursWorked}h` : '—', color: '#38bdf8' },
+                      { label: 'Std. Hours', value: payslipData.standardHours ? `${payslipData.standardHours}h` : '—', color: '#818cf8' },
+                      { label: 'Overtime Hrs', value: payslipData.overtimeHours ? `${payslipData.overtimeHours}h` : '0h', color: '#fb923c' },
+                      { label: 'Hourly Rate', value: payslipData.hourlyRate ? `₹${payslipData.hourlyRate}/h` : '—', color: '#a78bfa' },
+                      { label: 'Earned Basic', value: formatCurrency(payslipData.basicPay), color: '#a78bfa' },
+                      { label: 'Overtime Pay', value: formatCurrency(payslipData.overtimePay || 0), color: '#fb923c' },
+                      { label: 'Allowances', value: formatCurrency(payslipData.allowances), color: '#34d399' },
+                      { label: 'Net Salary', value: formatCurrency(payslipData.netSalary), color: '#38bdf8', big: true },
                     ].map(c => (
                       <div key={c.label} style={{
                         background: 'var(--color-surface)',

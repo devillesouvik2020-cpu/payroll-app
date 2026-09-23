@@ -6,11 +6,11 @@ import { useAuth } from '../context/AuthContext';
 
 const MONTHS = [
   { value: 1, label: 'January' }, { value: 2, label: 'February' },
-  { value: 3, label: 'March' },   { value: 4, label: 'April' },
-  { value: 5, label: 'May' },     { value: 6, label: 'June' },
-  { value: 7, label: 'July' },    { value: 8, label: 'August' },
-  { value: 9, label: 'September' },{ value: 10, label: 'October' },
-  { value: 11, label: 'November' },{ value: 12, label: 'December' },
+  { value: 3, label: 'March' }, { value: 4, label: 'April' },
+  { value: 5, label: 'May' }, { value: 6, label: 'June' },
+  { value: 7, label: 'July' }, { value: 8, label: 'August' },
+  { value: 9, label: 'September' }, { value: 10, label: 'October' },
+  { value: 11, label: 'November' }, { value: 12, label: 'December' },
 ];
 
 function formatCurrency(n) {
@@ -21,10 +21,9 @@ export default function MyPayslips() {
   const { user } = useAuth();
   const employeeId = user?.employee?._id;
 
-  const [payslips, setPayslips]   = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState('');
-  const [selected, setSelected]   = useState(null);
+  const [payslips, setPayslips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const fetchPayslips = useCallback(async () => {
     if (!employeeId) return;
@@ -55,16 +54,16 @@ export default function MyPayslips() {
       <div style="display:flex;justify-content:space-between;border-bottom:2px solid #6366f1;padding-bottom:14px;margin-bottom:18px;">
         <div><div style="font-size:20px;font-weight:800;color:#6366f1;">PayrollPro Inc.</div><div style="font-size:11px;color:#64748b;">Employee Payslip</div></div>
         <div style="text-align:right;"><div style="font-size:13px;font-weight:700;">${monthLabel} ${p.year}</div>
-        <div style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${p.status==='paid'?'#d1fae5':'#fef3c7'};color:${p.status==='paid'?'#059669':'#b45309'};">${p.status==='paid'?'✓ PAID':'⏳ PENDING'}</div></div>
+        <div style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${p.status === 'paid' ? '#d1fae5' : '#fef3c7'};color:${p.status === 'paid' ? '#059669' : '#b45309'};">${p.status === 'paid' ? '✓ PAID' : '⏳ PENDING'}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-bottom:18px;padding:12px 14px;background:#f8fafc;border-radius:8px;">
-        ${[['Employee Name',p.employee?.name],['Employee ID',p.employee?.employeeId],['Designation',p.employee?.designation],['Department',p.employee?.department],['Pay Period',`${monthLabel} ${p.year}`]].map(([k,v])=>`<div><div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">${k}</div><div style="font-size:13px;font-weight:600;margin-top:2px;">${v||'—'}</div></div>`).join('')}
+        ${[['Employee Name', p.employee?.name], ['Employee ID', p.employee?.employeeId], ['Designation', p.employee?.designation], ['Department', p.employee?.department], ['Pay Period', `${monthLabel} ${p.year}`]].map(([k, v]) => `<div><div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">${k}</div><div style="font-size:13px;font-weight:600;margin-top:2px;">${v || '—'}</div></div>`).join('')}
       </div>
       <table>
         <thead><tr><th>COMPONENT</th><th style="text-align:right;">AMOUNT</th></tr></thead>
         <tbody>
-          <tr style="border-bottom:1px solid #f1f5f9;"><td>Earned Basic Pay${p.hoursWorked?` (${p.hoursWorked}h × ₹${p.hourlyRate}/h)`:''}</td><td style="text-align:right;font-weight:600;">${formatCurrency(p.basicPay)}</td></tr>
-          ${p.overtimePay>0?`<tr style="border-bottom:1px solid #f1f5f9;"><td style="color:#d97706;">Overtime Pay (${p.overtimeHours}h × ₹${p.hourlyRate}/h × 1.5)</td><td style="text-align:right;font-weight:600;color:#d97706;">+ ${formatCurrency(p.overtimePay)}</td></tr>`:''}
+          <tr style="border-bottom:1px solid #f1f5f9;"><td>Earned Basic Pay${p.hoursWorked ? ` (${p.hoursWorked}h × ₹${p.hourlyRate}/h)` : ''}</td><td style="text-align:right;font-weight:600;">${formatCurrency(p.basicPay)}</td></tr>
+          ${p.overtimePay > 0 ? `<tr style="border-bottom:1px solid #f1f5f9;"><td style="color:#d97706;">Overtime Pay (${p.overtimeHours}h × ₹${p.hourlyRate}/h × 1.5)</td><td style="text-align:right;font-weight:600;color:#d97706;">+ ${formatCurrency(p.overtimePay)}</td></tr>` : ''}
           <tr style="border-bottom:1px solid #f1f5f9;"><td style="color:#059669;">Housing & Allowances</td><td style="text-align:right;font-weight:600;color:#059669;">+ ${formatCurrency(p.allowances)}</td></tr>
           <tr style="border-bottom:1px solid #f1f5f9;"><td style="color:#e11d48;">Deductions (PF / Tax)</td><td style="text-align:right;font-weight:600;color:#e11d48;">− ${formatCurrency(p.deductions)}</td></tr>
         </tbody>

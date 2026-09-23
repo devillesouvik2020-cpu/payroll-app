@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   DollarSign, Search, FileText, CheckCircle, Calendar,
-  RefreshCw, Plus, X, Eye, Users, TrendingUp, Printer,
-  ChevronDown, AlertCircle,
+  RefreshCw, Plus, X, Eye, Users, Printer, AlertCircle,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '../config';
@@ -10,18 +9,18 @@ import EmployeePayrollPopup from './EmployeePayrollPopup';
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 const MONTHS = [
-  { value: 1,  label: 'January'   },
-  { value: 2,  label: 'February'  },
-  { value: 3,  label: 'March'     },
-  { value: 4,  label: 'April'     },
-  { value: 5,  label: 'May'       },
-  { value: 6,  label: 'June'      },
-  { value: 7,  label: 'July'      },
-  { value: 8,  label: 'August'    },
-  { value: 9,  label: 'September' },
-  { value: 10, label: 'October'   },
-  { value: 11, label: 'November'  },
-  { value: 12, label: 'December'  },
+  { value: 1, label: 'January' },
+  { value: 2, label: 'February' },
+  { value: 3, label: 'March' },
+  { value: 4, label: 'April' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'June' },
+  { value: 7, label: 'July' },
+  { value: 8, label: 'August' },
+  { value: 9, label: 'September' },
+  { value: 10, label: 'October' },
+  { value: 11, label: 'November' },
+  { value: 12, label: 'December' },
 ];
 
 function formatCurrency(n) {
@@ -98,11 +97,11 @@ function PayslipModal({ payroll, onClose, onMarkPaid }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px', marginBottom: 18, padding: '12px 14px', background: '#f8fafc', borderRadius: 8 }}>
             {[
               ['Employee Name', emp?.name],
-              ['Employee ID',   emp?.employeeId],
-              ['Designation',   emp?.designation],
-              ['Department',    emp?.department],
-              ['Email',         emp?.email],
-              ['Pay Period',    `${monthLabel} ${year}`],
+              ['Employee ID', emp?.employeeId],
+              ['Designation', emp?.designation],
+              ['Department', emp?.department],
+              ['Email', emp?.email],
+              ['Pay Period', `${monthLabel} ${year}`],
             ].map(([k, v]) => (
               <div key={k}>
                 <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>{k}</div>
@@ -115,10 +114,10 @@ function PayslipModal({ payroll, onClose, onMarkPaid }) {
           {payroll.hoursWorked > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16, padding: '10px 14px', background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd' }}>
               {[
-                ['Hours Worked',   `${payroll.hoursWorked}h`],
+                ['Hours Worked', `${payroll.hoursWorked}h`],
                 ['Standard Hours', `${payroll.standardHours}h`],
-                ['Overtime Hrs',   `${payroll.overtimeHours || 0}h`],
-                ['Hourly Rate',    `₹${payroll.hourlyRate || 0}/h`],
+                ['Overtime Hrs', `${payroll.overtimeHours || 0}h`],
+                ['Hourly Rate', `₹${payroll.hourlyRate || 0}/h`],
               ].map(([k, v]) => (
                 <div key={k} style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 10, color: '#0369a1', fontWeight: 700, textTransform: 'uppercase' }}>{k}</div>
@@ -198,12 +197,12 @@ function PayslipModal({ payroll, onClose, onMarkPaid }) {
 /* ── Generate Payroll Modal ────────────────────────────────────────────────── */
 function GeneratePayrollModal({ employees, onClose, onGenerated, defaultMonth, defaultYear }) {
   const now = new Date();
-  const [selEmployee, setSelEmployee]   = useState('');
-  const [genMonth,    setGenMonth]      = useState(defaultMonth || now.getMonth() + 1);
-  const [genYear,     setGenYear]       = useState(defaultYear  || now.getFullYear());
+  const [selEmployee, setSelEmployee] = useState('');
+  const [genMonth, setGenMonth] = useState(defaultMonth || now.getMonth() + 1);
+  const [genYear, setGenYear] = useState(defaultYear || now.getFullYear());
   const [useAttendance, setUseAttendance] = useState(true);
-  const [generating,  setGenerating]    = useState(false);
-  const [error,       setError]         = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState('');
   const [attendancePreview, setAttendancePreview] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
@@ -257,10 +256,10 @@ function GeneratePayrollModal({ employees, onClose, onGenerated, defaultMonth, d
     ? selectedEmp.basicPay + selectedEmp.allowances - selectedEmp.deductions
     : null;
 
-  const previewBasic  = useAttendance && attendancePreview ? attendancePreview.basicPay  : selectedEmp?.basicPay;
-  const previewAllow  = useAttendance && attendancePreview ? attendancePreview.allowances : selectedEmp?.allowances;
+  const previewBasic = useAttendance && attendancePreview ? attendancePreview.basicPay : selectedEmp?.basicPay;
+  const previewAllow = useAttendance && attendancePreview ? attendancePreview.allowances : selectedEmp?.allowances;
   const previewDeduct = selectedEmp?.deductions;
-  const previewNet    = useAttendance && attendancePreview ? attendancePreview.netSalary  : fixedNet;
+  const previewNet = useAttendance && attendancePreview ? attendancePreview.netSalary : fixedNet;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -387,9 +386,9 @@ function GeneratePayrollModal({ employees, onClose, onGenerated, defaultMonth, d
                 </div>
 
                 {[
-                  { label: 'Basic Pay',   val: previewBasic,  color: null        },
-                  { label: '+ Allowances', val: previewAllow, color: '#34d399'   },
-                  { label: '− Deductions', val: previewDeduct, color: '#fb7185'  },
+                  { label: 'Basic Pay', val: previewBasic, color: null },
+                  { label: '+ Allowances', val: previewAllow, color: '#34d399' },
+                  { label: '− Deductions', val: previewDeduct, color: '#fb7185' },
                 ].map(r => (
                   <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                     <span style={{ color: 'var(--text-secondary)' }}>{r.label}</span>
@@ -439,7 +438,7 @@ function AttendanceBadge({ employeeId, month, year }) {
     let cancelled = false;
     axios.get(`${API_BASE}/employees/${employeeId}/monthly-attendance`, { params: { month, year } })
       .then(res => { if (!cancelled) setData(res.data.data?.summary); })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, [employeeId, month, year]);
 
@@ -460,21 +459,21 @@ function AttendanceBadge({ employeeId, month, year }) {
 /* ── Main Component ────────────────────────────────────────────────────────── */
 export default function PayrollView() {
   const now = new Date();
-  const [employees,    setEmployees]    = useState([]);
-  const [payrolls,     setPayrolls]     = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState('');
-  const [success,      setSuccess]      = useState('');
+  const [employees, setEmployees] = useState([]);
+  const [payrolls, setPayrolls] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // Filters
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
-  const [filterYear,  setFilterYear]  = useState(now.getFullYear());
-  const [search,      setSearch]      = useState('');
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [search, setSearch] = useState('');
 
   // Modals
-  const [selectedPayroll,    setSelectedPayroll]    = useState(null);   // PayslipModal
-  const [showGenerateModal,  setShowGenerateModal]  = useState(false);  // GeneratePayrollModal
-  const [popupEmployee,      setPopupEmployee]      = useState(null);   // EmployeePayrollPopup
+  const [selectedPayroll, setSelectedPayroll] = useState(null);   // PayslipModal
+  const [showGenerateModal, setShowGenerateModal] = useState(false);  // GeneratePayrollModal
+  const [popupEmployee, setPopupEmployee] = useState(null);   // EmployeePayrollPopup
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -490,7 +489,7 @@ export default function PayrollView() {
     try {
       const params = {};
       if (filterMonth) params.month = filterMonth;
-      if (filterYear)  params.year  = filterYear;
+      if (filterYear) params.year = filterYear;
       const res = await axios.get(`${API_BASE}/payroll`, { params });
       setPayrolls(res.data.data);
     } catch {
@@ -501,7 +500,7 @@ export default function PayrollView() {
   }, [filterMonth, filterYear]);
 
   useEffect(() => { fetchEmployees(); }, [fetchEmployees]);
-  useEffect(() => { fetchPayrolls(); },  [fetchPayrolls]);
+  useEffect(() => { fetchPayrolls(); }, [fetchPayrolls]);
 
   // Auto-clear alerts
   useEffect(() => {
@@ -529,13 +528,13 @@ export default function PayrollView() {
   const filtered = payrolls.filter(p => {
     const name = p.employee?.name?.toLowerCase() || '';
     const dept = p.employee?.department?.toLowerCase() || '';
-    const q    = search.toLowerCase();
+    const q = search.toLowerCase();
     return name.includes(q) || dept.includes(q);
   });
 
   // Summary stats
-  const totalPaid      = filtered.filter(p => p.status === 'paid').length;
-  const totalPending   = filtered.filter(p => p.status === 'generated').length;
+  const totalPaid = filtered.filter(p => p.status === 'paid').length;
+  const totalPending = filtered.filter(p => p.status === 'generated').length;
   const totalNetSalary = filtered.reduce((s, p) => s + (p.netSalary || 0), 0);
 
   return (
@@ -560,8 +559,8 @@ export default function PayrollView() {
       </div>
 
       <div className="page-content fade-in">
-        {error   && <div className="alert alert-error"   style={{ marginBottom: 16 }}><AlertCircle size={14} /> {error}</div>}
-        {success && <div className="alert alert-success" style={{ marginBottom: 16 }}><CheckCircle  size={14} /> {success}</div>}
+        {error && <div className="alert alert-error" style={{ marginBottom: 16 }}><AlertCircle size={14} /> {error}</div>}
+        {success && <div className="alert alert-success" style={{ marginBottom: 16 }}><CheckCircle size={14} /> {success}</div>}
 
         {/* ── Summary Stats ── */}
         <div className="stat-cards-grid" style={{ marginBottom: 20 }}>
