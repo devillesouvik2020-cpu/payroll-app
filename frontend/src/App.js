@@ -1,7 +1,9 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './index.css';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import EmployeeList from './components/EmployeeList';
 import EmployeeForm from './components/EmployeeForm';
@@ -14,39 +16,68 @@ import PerformancePage from './components/PerformancePage';
 import AssetsPage from './components/AssetsPage';
 import SettingsPage from './components/SettingsPage';
 import HRManagerProfile from './components/HRManagerProfile';
+import MyPayslips from './components/MyPayslips';
+import MyAttendance from './components/MyAttendance';
+
+// Redirect to / if authenticated, else show login
+function PublicLoginRoute() {
+  const { isAuthenticated } = useAuth();
+  if (isAuthenticated) return <Navigate to="/" replace />;
+  return <LoginPage />;
+}
+
+// Wrap with Layout + optional permission check
+function ProtectedRoute({ children, permission }) {
+  const { isAuthenticated, can } = useAuth();
+  const location = useLocation();
+  if (!isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (permission && !can(permission)) return <Navigate to="/" replace />;
+  return <Layout>{children}</Layout>;
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<PublicLoginRoute />} />
+
+      {/* Always accessible when logged in */}
+      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+
+      {/* admin + hr */}
+      <Route path="/employees"        element={<ProtectedRoute permission="employees"><EmployeeList /></ProtectedRoute>} />
+      <Route path="/employees/new"    element={<ProtectedRoute permission="employees"><EmployeeForm /></ProtectedRoute>} />
+      <Route path="/employees/edit/:id" element={<ProtectedRoute permission="employees"><EmployeeForm /></ProtectedRoute>} />
+      <Route path="/employees/:id"    element={<ProtectedRoute permission="employees"><EmployeeProfile /></ProtectedRoute>} />
+      <Route path="/payroll"          element={<ProtectedRoute permission="payroll"><PayrollView /></ProtectedRoute>} />
+      <Route path="/performance"      element={<ProtectedRoute permission="performance"><PerformancePage /></ProtectedRoute>} />
+
+      {/* admin + hr — attendance (all employees) */}
+      <Route path="/attendance"       element={<ProtectedRoute permission="attendance"><AttendancePage /></ProtectedRoute>} />
+
+      {/* admin only */}
+      <Route path="/time-tracker"     element={<ProtectedRoute permission="timeTracker"><TimeTrackerPage /></ProtectedRoute>} />
+      <Route path="/settings"         element={<ProtectedRoute permission="settings"><SettingsPage /></ProtectedRoute>} />
+      <Route path="/hr-manager"       element={<ProtectedRoute permission="hrManager"><HRManagerProfile /></ProtectedRoute>} />
+
+      {/* it + admin */}
+      <Route path="/assets"           element={<ProtectedRoute permission="assets"><AssetsPage /></ProtectedRoute>} />
+
+      {/* employee + admin */}
+      <Route path="/tasks"            element={<ProtectedRoute permission="tasks"><TasksPage /></ProtectedRoute>} />
+      <Route path="/my-payslips"      element={<ProtectedRoute permission="myPayslips"><MyPayslips /></ProtectedRoute>} />
+      <Route path="/my-attendance"    element={<ProtectedRoute permission="myAttendance"><MyAttendance /></ProtectedRoute>} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
-      <Layout>
-        <Routes>
-          {/* Dashboard */}
-          <Route path="/" element={<Dashboard />} />
-
-          {/* Employee Management */}
-          <Route path="/employees" element={<EmployeeList />} />
-          <Route path="/employees/new" element={<EmployeeForm />} />
-          <Route path="/employees/edit/:id" element={<EmployeeForm />} />
-          <Route path="/employees/:id" element={<EmployeeProfile />} />
-
-          {/* Payroll */}
-          <Route path="/payroll" element={<PayrollView />} />
-
-          {/* HR Tools */}
-          <Route path="/attendance" element={<AttendancePage />} />
-          <Route path="/time-tracker" element={<TimeTrackerPage />} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/performance" element={<PerformancePage />} />
-          <Route path="/assets" element={<AssetsPage />} />
-
-          {/* HR Manager & Settings */}
-          <Route path="/hr-manager" element={<HRManagerProfile />} />
-          <Route path="/settings" element={<SettingsPage />} />
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

@@ -6,7 +6,6 @@ import {
   UserX,
   Calendar,
   Search,
-  Plus,
   Edit2,
   Trash2,
   AlertCircle,
@@ -78,20 +77,6 @@ export default function AttendancePage() {
     leave: attendanceList.filter((a) => a.status === 'leave').length,
   };
 
-  const openAddModal = (empId = '') => {
-    setModalMode('add');
-    setEditId(null);
-    setForm({
-      employee: empId || (employees[0]?._id || ''),
-      date: selectedDate,
-      status: 'present',
-      checkIn: '09:00',
-      checkOut: '18:00',
-      notes: '',
-    });
-    setShowModal(true);
-  };
-
   const openEditModal = (rec) => {
     setModalMode('edit');
     setEditId(rec._id);
@@ -159,16 +144,6 @@ export default function AttendancePage() {
         <div className="page-header-text">
           <h2>Attendance Management</h2>
           <p>Track daily employee presence, punch times, leaves, and work anomalies.</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => openAddModal()}
-            id="mark-attendance-btn"
-          >
-            <Plus size={15} /> Mark Attendance
-          </button>
         </div>
       </div>
 
@@ -291,16 +266,8 @@ export default function AttendancePage() {
                 <div className="empty-state-icon">
                   <CalendarCheck size={28} />
                 </div>
-                <h4>No attendance marked for this date</h4>
-                <p>Click "Mark Attendance" to record employee attendance for {selectedDate}.</p>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => openAddModal()}
-                  style={{ marginTop: 12 }}
-                >
-                  <Plus size={14} /> Mark Attendance Now
-                </button>
+                <h4>No attendance records for this date</h4>
+                <p>Attendance is recorded automatically when employees enter the office.</p>
               </div>
             ) : (
               <div className="table-wrapper">

@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const bcrypt = require("bcrypt");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -56,6 +57,7 @@ const employeeSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true },
     designation: { type: String, required: true },
     department: { type: String, required: true },
+    role: { type: String, enum: ["admin", "hr", "it", "employee"], default: "employee" },
     basicPay: { type: Number, required: true, min: 0 },
     allowances: { type: Number, default: 0, min: 0 },
     deductions: { type: Number, default: 0, min: 0 },
@@ -94,6 +96,12 @@ const payrollSchema = new mongoose.Schema(
     allowances: { type: Number, default: 0 },
     deductions: { type: Number, default: 0 },
     netSalary: { type: Number, required: true },
+    // Hours-based fields
+    hoursWorked:    { type: Number, default: 0 },   // actual hours worked
+    standardHours:  { type: Number, default: 0 },   // expected hours for the month
+    overtimeHours:  { type: Number, default: 0 },   // hours beyond standard
+    overtimePay:    { type: Number, default: 0 },   // extra pay for overtime
+    hourlyRate:     { type: Number, default: 0 },   // basicPay / standardHours
     status: {
       type: String,
       enum: ["generated", "paid"],
@@ -144,6 +152,8 @@ const timeTrackerSchema = new mongoose.Schema(
     logoutTime: { type: String, default: "" },
     totalHours: { type: Number, default: 0 },
     notes: { type: String, default: "" },
+    // "office" = recorded via Office Entry button; "manual" = added via Time Tracker page
+    entryType: { type: String, enum: ["office", "manual", ""], default: "" },
   },
   { timestamps: true }
 );
@@ -285,6 +295,33 @@ const settingsSchema = new mongoose.Schema(
 );
 
 const Settings = mongoose.model("Settings", settingsSchema);
+
+// ─── User Schema (Login Accounts) ─────────────────────────────────────────────
+const userSchema = new mongoose.Schema(
+  {
+    email: { type: String, required: true, unique: true, lowercase: true },
+    passwordHash: { type: String, required: true },
+    role: { type: String, enum: ["admin", "hr", "it", "employee"], default: "employee" },
+    employee: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+      default: null,
+    },
+  },
+  { timestamps: true }
+);
+
+const User = mongoose.model("User", userSchema);
+
+// ─── Helper: Generate Random Password ─────────────────────────────────────────
+function generateRandomPassword(length = 12) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
 
 // Default settings
 const DEFAULT_SETTINGS = {
@@ -539,7 +576,20 @@ async function seedInitialData() {
       bio: "Overseeing talent acquisition, organizational culture, compensation structuring, and compliance across all business units.",
     });
 
-    console.log("✅ Demo database successfully seeded with employees, attendance, tasks, assets & payroll.");
+    // Create login accounts for seeded employees
+    const demoPassword = "Demo@12345";
+    const demoHash = await bcrypt.hash(demoPassword, 10);
+
+    await User.insertMany([
+      { email: "sarah.chen@payrollpro.io", passwordHash: demoHash, role: "employee", employee: sampleEmployees[0]._id },
+      { email: "david.miller@payrollpro.io", passwordHash: demoHash, role: "employee", employee: sampleEmployees[1]._id },
+      { email: "priya.sharma@payrollpro.io", passwordHash: demoHash, role: "hr", employee: sampleEmployees[2]._id },
+      { email: "michael.scott@payrollpro.io", passwordHash: demoHash, role: "employee", employee: sampleEmployees[3]._id },
+      { email: "ananya.roy@payrollpro.io", passwordHash: demoHash, role: "employee", employee: sampleEmployees[4]._id },
+      { email: "admin.hr@payrollpro.io", passwordHash: demoHash, role: "admin", employee: null },
+    ]);
+
+    console.log("✅ Demo database successfully seeded with employees, attendance, tasks, assets, payroll & user accounts.");
   } catch (err) {
     console.warn("⚠️ Error seeding database:", err.message);
   }
@@ -574,6 +624,180 @@ app.get("/api/employees", async (req, res) => {
   }
 });
 
+// Helper function for duration calculation
+function calcHours(login, logout) {
+  if (!login || !logout) return 0;
+  const [h1, m1] = login.split(":").map(Number);
+  const [h2, m2] = logout.split(":").map(Number);
+  const diffMinutes = h2 * 60 + m2 - (h1 * 60 + m1);
+  if (diffMinutes <= 0) return 0;
+  return Number((diffMinutes / 60).toFixed(2));
+}
+
+// GET employees who worked on current date
+// Only includes employees who used the Office Entry button (entryType = "office")
+app.get("/api/employees/logged-in-today", async (req, res) => {
+  try {
+    const today = req.query.date || new Date().toISOString().split("T")[0];
+
+    // Only fetch TimeTracker records created via the Office Entry flow
+    const timeRecords = await TimeTracker.find({
+      date: today,
+      entryType: "office",
+      loginTime: { $exists: true, $ne: "" },
+    })
+      .populate("employee", "name designation department employeeId email status")
+      .sort({ loginTime: 1 });
+
+    // Current time for live hours on still-active employees
+    const nowDate = new Date();
+    const nowStr  = `${String(nowDate.getHours()).padStart(2, "0")}:${String(nowDate.getMinutes()).padStart(2, "0")}`;
+
+    const records = timeRecords
+      .filter((tr) => tr.employee?._id) // skip orphaned records
+      .map((tr) => {
+        const logoutTime  = tr.logoutTime || "";
+        const isActive    = !logoutTime;
+        const workedHours = logoutTime
+          ? (tr.totalHours || calcHours(tr.loginTime, logoutTime))
+          : calcHours(tr.loginTime, nowStr);
+
+        return {
+          _id:              tr._id,
+          employee:         tr.employee,
+          date:             tr.date,
+          loginTime:        tr.loginTime,
+          logoutTime,
+          workedHours:      Number(workedHours.toFixed(2)),
+          isActive,
+          attendanceStatus: "present",
+          notes:            tr.notes || "",
+          source:           "office-entry",
+        };
+      });
+
+    res.json({
+      success: true,
+      data: records,
+      count: records.length,
+      date: today,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET monthly attendance for a specific employee (login/logout + extra hours)
+// IMPORTANT: must be before GET /api/employees/:id to avoid route collision
+app.get("/api/employees/:id/monthly-attendance", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { month, year } = req.query;
+
+    const mm = String(month || new Date().getMonth() + 1).padStart(2, "0");
+    const yy = year || new Date().getFullYear();
+    const dateRegex = `^${yy}-${mm}`;
+
+    const employee = await Employee.findById(id);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    const [attendanceRecords, timeRecords] = await Promise.all([
+      Attendance.find({ employee: id, date: { $regex: dateRegex } }).sort({ date: 1 }),
+      TimeTracker.find({ employee: id, date: { $regex: dateRegex } }).sort({ date: 1 }),
+    ]);
+
+    const dayMap = new Map();
+
+    attendanceRecords.forEach((rec) => {
+      dayMap.set(rec.date, {
+        date: rec.date,
+        status: rec.status,
+        checkIn: rec.checkIn || "",
+        checkOut: rec.checkOut || "",
+        notes: rec.notes || "",
+        loginTime: rec.checkIn || "",
+        logoutTime: rec.checkOut || "",
+        totalHours: rec.checkIn && rec.checkOut ? calcHours(rec.checkIn, rec.checkOut) : 0,
+        extraHours: 0,
+        source: "attendance",
+      });
+    });
+
+    timeRecords.forEach((rec) => {
+      const existing = dayMap.get(rec.date);
+      const totalHours = rec.totalHours || (rec.loginTime && rec.logoutTime ? calcHours(rec.loginTime, rec.logoutTime) : 0);
+      if (existing) {
+        if (rec.loginTime) existing.loginTime = rec.loginTime;
+        if (rec.logoutTime) existing.logoutTime = rec.logoutTime;
+        existing.totalHours = totalHours;
+        existing.source = "both";
+      } else {
+        dayMap.set(rec.date, {
+          date: rec.date,
+          status: totalHours > 0 ? "present" : "absent",
+          checkIn: rec.loginTime || "",
+          checkOut: rec.logoutTime || "",
+          notes: rec.notes || "",
+          loginTime: rec.loginTime || "",
+          logoutTime: rec.logoutTime || "",
+          totalHours,
+          extraHours: 0,
+          source: "time-tracker",
+        });
+      }
+    });
+
+    const STANDARD_HOURS = 8;
+    const days = Array.from(dayMap.values())
+      .map((d) => ({ ...d, extraHours: Math.max(0, Number((d.totalHours - STANDARD_HOURS).toFixed(2))) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const presentDays      = days.filter((d) => d.status === "present" || d.status === "late").length;
+    const absentDays       = days.filter((d) => d.status === "absent").length;
+    const leaveDays        = days.filter((d) => d.status === "leave").length;
+    const totalExtraHours  = days.reduce((sum, d) => sum + d.extraHours, 0);
+    const totalWorkingHours = days.reduce((sum, d) => sum + d.totalHours, 0);
+
+    const daysInMonth = new Date(Number(yy), Number(mm), 0).getDate();
+    let workingDaysInMonth = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dow = new Date(Number(yy), Number(mm) - 1, d).getDay();
+      if (dow !== 0 && dow !== 6) workingDaysInMonth++;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        employee: {
+          _id: employee._id,
+          name: employee.name,
+          employeeId: employee.employeeId,
+          designation: employee.designation,
+          department: employee.department,
+          basicPay: employee.basicPay,
+          allowances: employee.allowances,
+          deductions: employee.deductions,
+        },
+        month: Number(mm),
+        year: Number(yy),
+        days,
+        summary: {
+          presentDays,
+          absentDays,
+          leaveDays,
+          totalWorkingHours: Number(totalWorkingHours.toFixed(2)),
+          totalExtraHours: Number(totalExtraHours.toFixed(2)),
+          workingDaysInMonth,
+        },
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET single employee
 app.get("/api/employees/:id", async (req, res) => {
   try {
@@ -593,11 +817,31 @@ app.post("/api/employees", async (req, res) => {
   try {
     const employee = new Employee(req.body);
     await employee.save();
-    res
-      .status(201)
-      .json({ success: true, data: employee, message: "Employee created" });
+
+    // Auto-generate login credentials for the new employee
+    const rawPassword = generateRandomPassword();
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+    await User.create({
+      email: employee.email,
+      passwordHash,
+      role: employee.role || "employee",
+      employee: employee._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: employee,
+      credentials: { email: employee.email, password: rawPassword },
+      message: "Employee created",
+    });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    // If User creation failed but Employee was created, clean up
+    if (err.code === 11000 && err.keyPattern?.email) {
+      res.status(400).json({ success: false, message: "A login account with this email already exists." });
+    } else {
+      res.status(400).json({ success: false, message: err.message });
+    }
   }
 });
 
@@ -692,6 +936,205 @@ app.get("/api/payroll", async (req, res) => {
       .populate("employee", "name designation department employeeId email")
       .sort({ year: -1, month: -1, createdAt: -1 });
 
+    res.json({ success: true, data: records, count: records.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Generate Payroll based on Working Hours ──────────────────────────────────
+// Formula:
+//   standardHours      = workingDaysInMonth × 8
+//   hourlyRate         = basicPay / standardHours
+//   earnedBasic        = min(actualHours, standardHours) × hourlyRate
+//   overtimeHours      = max(0, actualHours - standardHours)
+//   overtimePay        = overtimeHours × hourlyRate × 1.5
+//   netSalary          = earnedBasic + overtimePay + allowances - deductions
+app.post("/api/payroll/generate-attendance-based", async (req, res) => {
+  try {
+    const { employeeId, month, year } = req.body;
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ success: false, message: "employeeId, month, year are required" });
+    }
+
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    // Check if payroll already exists
+    const existing = await Payroll.findOne({ employee: employeeId, month: Number(month), year: Number(year) });
+    if (existing) {
+      return res.status(400).json({ success: false, message: `Payroll for ${month}/${year} already generated` });
+    }
+
+    const mm = String(month).padStart(2, "0");
+
+    // Fetch TimeTracker records (primary source for hours)
+    const timeRecords = await TimeTracker.find({
+      employee: employeeId,
+      date: { $regex: `^${year}-${mm}` },
+    });
+
+    // Fallback: attendance checkIn/checkOut if no TimeTracker entries
+    const attendanceRecords = await Attendance.find({
+      employee: employeeId,
+      date: { $regex: `^${year}-${mm}` },
+    });
+
+    // Build a hours map by date (TimeTracker takes priority)
+    const hoursMap = new Map();
+    attendanceRecords.forEach((r) => {
+      if (r.checkIn && r.checkOut) {
+        hoursMap.set(r.date, calcHours(r.checkIn, r.checkOut));
+      }
+    });
+    timeRecords.forEach((r) => {
+      const h = r.totalHours || (r.loginTime && r.logoutTime ? calcHours(r.loginTime, r.logoutTime) : 0);
+      if (h > 0) hoursMap.set(r.date, h);
+    });
+
+    const actualHours = Array.from(hoursMap.values()).reduce((sum, h) => sum + h, 0);
+
+    // Standard hours for the month (Mon–Fri × 8h)
+    const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+    let workingDaysInMonth = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dow = new Date(Number(year), Number(month) - 1, d).getDay();
+      if (dow !== 0 && dow !== 6) workingDaysInMonth++;
+    }
+    const standardHours = workingDaysInMonth * 8;
+
+    // If no hours recorded at all, fall back to full salary
+    const effectiveHours = actualHours > 0 ? actualHours : standardHours;
+
+    const hourlyRate      = standardHours > 0 ? employee.basicPay / standardHours : 0;
+    const earnedBasic     = Math.round(Math.min(effectiveHours, standardHours) * hourlyRate);
+    const overtimeHours   = Math.max(0, Number((effectiveHours - standardHours).toFixed(2)));
+    const overtimePay     = Math.round(overtimeHours * hourlyRate * 1.5);
+    const netSalary       = Math.max(0, earnedBasic + overtimePay + employee.allowances - employee.deductions);
+
+    const payroll = new Payroll({
+      employee: employeeId,
+      month: Number(month),
+      year: Number(year),
+      basicPay: earnedBasic,
+      allowances: employee.allowances,
+      deductions: employee.deductions,
+      netSalary,
+      hoursWorked:   Number(effectiveHours.toFixed(2)),
+      standardHours,
+      overtimeHours,
+      overtimePay,
+      hourlyRate:    Number(hourlyRate.toFixed(2)),
+    });
+
+    await payroll.save();
+    await payroll.populate("employee");
+
+    res.status(201).json({
+      success: true,
+      data: payroll,
+      meta: {
+        actualHours: Number(effectiveHours.toFixed(2)),
+        standardHours,
+        overtimeHours,
+        hourlyRate: Number(hourlyRate.toFixed(2)),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Get or generate payslip for employee for a specific month/year ───────────
+app.get("/api/payroll/payslip/:employeeId/:year/:month", async (req, res) => {
+  try {
+    const { employeeId, month, year } = req.params;
+
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    let payroll = await Payroll.findOne({
+      employee: employeeId,
+      month: Number(month),
+      year: Number(year),
+    }).populate("employee");
+
+    // Already generated — return as-is
+    if (payroll) {
+      return res.json({ success: true, data: payroll });
+    }
+
+    // ── Preview: calculate hours-based salary without saving ──
+    const mm = String(month).padStart(2, "0");
+
+    const [timeRecords, attendanceRecords] = await Promise.all([
+      TimeTracker.find({ employee: employeeId, date: { $regex: `^${year}-${mm}` } }),
+      Attendance.find({ employee: employeeId, date: { $regex: `^${year}-${mm}` } }),
+    ]);
+
+    // Build hours map — TimeTracker takes priority over attendance checkIn/Out
+    const hoursMap = new Map();
+    attendanceRecords.forEach((r) => {
+      if (r.checkIn && r.checkOut) hoursMap.set(r.date, calcHours(r.checkIn, r.checkOut));
+    });
+    timeRecords.forEach((r) => {
+      const h = r.totalHours || (r.loginTime && r.logoutTime ? calcHours(r.loginTime, r.logoutTime) : 0);
+      if (h > 0) hoursMap.set(r.date, h);
+    });
+
+    const actualHours = Array.from(hoursMap.values()).reduce((sum, h) => sum + h, 0);
+
+    // Standard hours for the month (Mon–Fri × 8h)
+    const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+    let workingDaysInMonth = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dow = new Date(Number(year), Number(month) - 1, d).getDay();
+      if (dow !== 0 && dow !== 6) workingDaysInMonth++;
+    }
+    const standardHours   = workingDaysInMonth * 8;
+    const effectiveHours  = actualHours > 0 ? actualHours : standardHours;
+    const hourlyRate      = standardHours > 0 ? employee.basicPay / standardHours : 0;
+    const earnedBasic     = Math.round(Math.min(effectiveHours, standardHours) * hourlyRate);
+    const overtimeHours   = Math.max(0, Number((effectiveHours - standardHours).toFixed(2)));
+    const overtimePay     = Math.round(overtimeHours * hourlyRate * 1.5);
+    const netSalary       = Math.max(0, earnedBasic + overtimePay + employee.allowances - employee.deductions);
+
+    return res.json({
+      success: true,
+      data: {
+        _id: null,
+        employee,
+        month: Number(month),
+        year: Number(year),
+        basicPay: earnedBasic,
+        allowances: employee.allowances,
+        deductions: employee.deductions,
+        netSalary,
+        hoursWorked:  Number(effectiveHours.toFixed(2)),
+        standardHours,
+        overtimeHours,
+        overtimePay,
+        hourlyRate:   Number(hourlyRate.toFixed(2)),
+        status: "preview",
+      },
+      meta: { actualHours: Number(effectiveHours.toFixed(2)), standardHours, overtimeHours, hourlyRate: Number(hourlyRate.toFixed(2)) },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET all payslips for a specific employee (for My Payslips page)
+app.get("/api/payroll/employee/:employeeId", async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const records = await Payroll.find({ employee: employeeId })
+      .populate("employee", "name designation department employeeId email joiningDate")
+      .sort({ year: -1, month: -1 });
     res.json({ success: true, data: records, count: records.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -822,6 +1265,34 @@ app.post("/api/attendance", async (req, res) => {
     res.status(201).json({ success: true, data: record });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
+  }
+});
+// PUT update attendance record
+app.put("/api/attendance/:id", async (req, res) => {
+  try {
+    const record = await Attendance.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    }).populate("employee", "name designation department employeeId");
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Attendance record not found" });
+    }
+    res.json({ success: true, data: record });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE attendance record
+app.delete("/api/attendance/:id", async (req, res) => {
+  try {
+    const record = await Attendance.findByIdAndDelete(req.params.id);
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Attendance record not found" });
+    }
+    res.json({ success: true, message: "Attendance record deleted" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -1239,6 +1710,207 @@ app.get("/api/stats", async (req, res) => {
         pendingTasks,
         completedTasks,
       },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Auth Routes ──────────────────────────────────────────────────────────────
+
+// POST login
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required" });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() }).populate("employee", "name designation department employeeId");
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+
+    // Auto-record login for employee if logging in today and no entry exists
+    if (user.employee && user.employee._id) {
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const existingTracker = await TimeTracker.findOne({ employee: user.employee._id, date: todayStr });
+        if (!existingTracker) {
+          await TimeTracker.create({
+            employee: user.employee._id,
+            date: todayStr,
+            loginTime: timeStr,
+            notes: "Portal Web Login",
+            entryType: "manual",
+          });
+        }
+      } catch (trackErr) {
+        console.warn("Could not auto-record login in TimeTracker:", trackErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        email: user.email,
+        role: user.role,
+        employee: user.employee,
+      },
+      message: "Login successful",
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET all user accounts (admin reference)
+app.get("/api/users", async (req, res) => {
+  try {
+    const users = await User.find()
+      .select("-passwordHash")
+      .populate("employee", "name designation department employeeId")
+      .sort({ createdAt: -1 });
+    res.json({ success: true, data: users, count: users.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Office Entry / Exit Routes ───────────────────────────────────────────────
+
+// GET today's office status for an employee
+app.get("/api/office/status/:employeeId", async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const today = new Date().toISOString().split("T")[0];
+
+    const tracker = await TimeTracker.findOne({ employee: employeeId, date: today });
+    const attendance = await Attendance.findOne({ employee: employeeId, date: today });
+
+    if (!tracker && !attendance) {
+      return res.json({ success: true, data: { status: "not_entered", loginTime: null, logoutTime: null, date: today } });
+    }
+
+    const loginTime  = tracker?.loginTime  || attendance?.checkIn  || null;
+    const logoutTime = tracker?.logoutTime || attendance?.checkOut || null;
+
+    let status = "not_entered";
+    if (loginTime && logoutTime) status = "exited";
+    else if (loginTime)          status = "inside";
+
+    res.json({ success: true, data: { status, loginTime, logoutTime, date: today } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST — Enter Office (records login time; only once per day)
+app.post("/api/office/enter", async (req, res) => {
+  try {
+    const { employeeId } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, message: "employeeId is required" });
+    }
+
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const now   = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    // Check if already entered today
+    const existingTracker = await TimeTracker.findOne({ employee: employeeId, date: today });
+    if (existingTracker?.loginTime) {
+      return res.status(400).json({
+        success: false,
+        message: `Already entered office today at ${existingTracker.loginTime}`,
+        data: { loginTime: existingTracker.loginTime, logoutTime: existingTracker.logoutTime || null },
+      });
+    }
+
+    // Upsert TimeTracker with login time
+    const tracker = await TimeTracker.findOneAndUpdate(
+      { employee: employeeId, date: today },
+      { employee: employeeId, date: today, loginTime: timeStr, logoutTime: "", totalHours: 0, notes: "Office Entry", entryType: "office" },
+      { new: true, upsert: true }
+    );
+
+    // Also upsert Attendance as "present"
+    await Attendance.findOneAndUpdate(
+      { employee: employeeId, date: today },
+      { employee: employeeId, date: today, status: "present", checkIn: timeStr, notes: "Office Entry" },
+      { upsert: true }
+    );
+
+    res.json({
+      success: true,
+      message: `Welcome, ${employee.name}! Entered office at ${timeStr}`,
+      data: { status: "inside", loginTime: timeStr, logoutTime: null, date: today },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST — Exit Office (records logout time; only if already entered)
+app.post("/api/office/exit", async (req, res) => {
+  try {
+    const { employeeId } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ success: false, message: "employeeId is required" });
+    }
+
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const now   = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    const tracker = await TimeTracker.findOne({ employee: employeeId, date: today });
+    if (!tracker?.loginTime) {
+      return res.status(400).json({ success: false, message: "You haven't entered the office today yet." });
+    }
+    if (tracker.logoutTime) {
+      return res.status(400).json({
+        success: false,
+        message: `Already exited office today at ${tracker.logoutTime}`,
+        data: { loginTime: tracker.loginTime, logoutTime: tracker.logoutTime },
+      });
+    }
+
+    const totalHours = calcHours(tracker.loginTime, timeStr);
+
+    // Update TimeTracker with logout
+    const updated = await TimeTracker.findOneAndUpdate(
+      { employee: employeeId, date: today },
+      { logoutTime: timeStr, totalHours, notes: "Office Exit", entryType: "office" },
+      { new: true }
+    );
+
+    // Update Attendance checkOut
+    await Attendance.findOneAndUpdate(
+      { employee: employeeId, date: today },
+      { checkOut: timeStr }
+    );
+
+    res.json({
+      success: true,
+      message: `Goodbye, ${employee.name}! Exited office at ${timeStr}. Total: ${totalHours}h`,
+      data: { status: "exited", loginTime: tracker.loginTime, logoutTime: timeStr, totalHours, date: today },
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

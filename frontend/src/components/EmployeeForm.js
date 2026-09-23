@@ -7,7 +7,11 @@ import {
   Save,
   Building,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  KeyRound,
+  Copy,
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '../config';
@@ -39,6 +43,7 @@ const initialForm = {
   officeEmail: '',
   designation: '',
   department: '',
+  role: 'employee',
   reportingManager: '',
   workLocation: 'Headquarters',
   employmentType: 'full-time',
@@ -48,6 +53,102 @@ const initialForm = {
   allowances: '',
   deductions: '',
 };
+
+// ─── Credentials Modal Component ────────────────────────────────────────────────
+function CredentialsModal({ credentials, onClose }) {
+  const [copiedField, setCopiedField] = useState('');
+
+  const handleCopy = async (text, field) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(''), 2000);
+    } catch {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(''), 2000);
+    }
+  };
+
+  return (
+    <div className="credentials-overlay" onClick={onClose}>
+      <div className="credentials-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="credentials-close" onClick={onClose} aria-label="Close">
+          <X size={18} />
+        </button>
+
+        <div className="credentials-icon-wrapper">
+          <div className="credentials-icon">
+            <ShieldCheck size={32} />
+          </div>
+        </div>
+
+        <h3 className="credentials-title">Employee Account Created!</h3>
+        <p className="credentials-subtitle">
+          Login credentials have been generated. Please save them securely — the password cannot be retrieved later.
+        </p>
+
+        <div className="credentials-fields">
+          <div className="credentials-field-group">
+            <label className="credentials-label">Email Address</label>
+            <div className="credentials-field">
+              <input
+                type="text"
+                className="credentials-input"
+                value={credentials.email}
+                readOnly
+              />
+              <button
+                className={`credentials-copy-btn ${copiedField === 'email' ? 'copied' : ''}`}
+                onClick={() => handleCopy(credentials.email, 'email')}
+                title="Copy email"
+              >
+                {copiedField === 'email' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                {copiedField === 'email' ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+
+          <div className="credentials-field-group">
+            <label className="credentials-label">Generated Password</label>
+            <div className="credentials-field">
+              <input
+                type="text"
+                className="credentials-input credentials-password"
+                value={credentials.password}
+                readOnly
+              />
+              <button
+                className={`credentials-copy-btn ${copiedField === 'password' ? 'copied' : ''}`}
+                onClick={() => handleCopy(credentials.password, 'password')}
+                title="Copy password"
+              >
+                {copiedField === 'password' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                {copiedField === 'password' ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="credentials-warning">
+          <KeyRound size={14} />
+          <span>This password is shown only once. Make sure to copy and share it securely with the employee.</span>
+        </div>
+
+        <button className="btn btn-primary credentials-done-btn" onClick={onClose}>
+          <CheckCircle2 size={16} />
+          Done — Go to Employees
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function EmployeeForm() {
   const { id } = useParams();
@@ -59,6 +160,7 @@ export default function EmployeeForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [credentialsModal, setCredentialsModal] = useState(null);
 
   const fetchEmployee = useCallback(async () => {
     try {
@@ -80,6 +182,7 @@ export default function EmployeeForm() {
         reportingManager: emp.reportingManager || '',
         workLocation: emp.workLocation || 'Headquarters',
         employmentType: emp.employmentType || 'full-time',
+        role: emp.role || 'employee',
         status: emp.status || 'active',
         basicPay: emp.basicPay ?? '',
         allowances: emp.allowances ?? '',
@@ -139,14 +242,21 @@ export default function EmployeeForm() {
       if (isEdit) {
         await axios.put(`${API_BASE}/employees/${id}`, payload);
         setSuccess('Employee record updated successfully!');
+        setTimeout(() => {
+          navigate('/employees');
+        }, 1200);
       } else {
-        await axios.post(`${API_BASE}/employees`, payload);
-        setSuccess('Employee created successfully! Redirecting...');
+        const res = await axios.post(`${API_BASE}/employees`, payload);
+        // Show credentials modal instead of redirecting
+        if (res.data.credentials) {
+          setCredentialsModal(res.data.credentials);
+        } else {
+          setSuccess('Employee created successfully! Redirecting...');
+          setTimeout(() => {
+            navigate('/employees');
+          }, 1200);
+        }
       }
-
-      setTimeout(() => {
-        navigate('/employees');
-      }, 1200);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save employee. Check if email is already in use.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -441,6 +551,21 @@ export default function EmployeeForm() {
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="role">System Role</label>
+                  <select
+                    id="role"
+                    name="role"
+                    className="form-select"
+                    value={form.role}
+                    onChange={handleChange}
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="hr">HR</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -552,6 +677,17 @@ export default function EmployeeForm() {
             </button>
           </div>
         </form>
+
+        {/* Credentials Popup Modal */}
+        {credentialsModal && (
+          <CredentialsModal
+            credentials={credentialsModal}
+            onClose={() => {
+              setCredentialsModal(null);
+              navigate('/employees');
+            }}
+          />
+        )}
       </div>
     </>
   );
