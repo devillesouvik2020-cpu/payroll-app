@@ -3,13 +3,62 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
+const path = require("path");
+const session = require("express-session");
+const multer = require("multer");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Multer Storage Configuration for Avatars
+const avatarStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, "uploads", "avatars"));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, "avatar-" + uniqueSuffix + ext);
+  },
+});
+
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  fileFilter: function (req, file, cb) {
+    const filetypes = /jpeg|jpg|png|webp|gif/;
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mimetype = filetypes.test(file.mimetype);
+    const extname = filetypes.test(ext);
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error("Only image files (.jpg, .jpeg, .png, .webp, .gif) up to 2MB are allowed!"));
+  },
+});
+
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: (origin, callback) => callback(null, true),
+    credentials: true,
+  })
+);
 app.use(express.json());
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "payroll-app-secure-session-secret-key-2026",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: "lax",
+    },
+  })
+);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // MongoDB Connection State
 let isDbConnected = false;
@@ -53,6 +102,7 @@ const employeeSchema = new mongoose.Schema(
       unique: true,
       default: () => "EMP" + Date.now().toString().slice(-6),
     },
+    avatar: { type: String, default: "" },
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true },
     designation: { type: String, required: true },
@@ -279,11 +329,24 @@ const hrManagerSchema = new mongoose.Schema(
     reportingTo: { type: String, default: "" },
     bio: { type: String, default: "" },
     address: { type: String, default: "" },
+    avatar: { type: String, default: "" },
   },
   { timestamps: true }
 );
 
 const HRManager = mongoose.model("HRManager", hrManagerSchema);
+
+// ─── Holiday Schema ───────────────────────────────────────────────────────────
+const holidaySchema = new mongoose.Schema(
+  {
+    date: { type: String, required: true, unique: true }, // Format: YYYY-MM-DD
+    name: { type: String, required: true, trim: true },
+    type: { type: String, default: "public" }, // public, national, optional
+  },
+  { timestamps: true }
+);
+
+const Holiday = mongoose.model("Holiday", holidaySchema);
 
 // ─── Settings Schema ──────────────────────────────────────────────────────────
 const settingsSchema = new mongoose.Schema(
@@ -321,6 +384,45 @@ function generateRandomPassword(length = 12) {
     password += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return password;
+}
+
+// Helper: generate unique sequential Employee ID (format: DME00001, DME00010, etc.)
+async function generateEmployeeId() {
+  const employees = await Employee.find({ employeeId: /^DME\d+$/i })
+    .select("employeeId")
+    .lean();
+
+  let maxNum = 0;
+  for (const emp of employees) {
+    const match = emp.employeeId.match(/^DME(\d+)$/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  }
+
+  let nextNum = maxNum + 1;
+  let candidate = `DME${String(nextNum).padStart(5, "0")}`;
+  while (await Employee.findOne({ employeeId: candidate })) {
+    nextNum++;
+    candidate = `DME${String(nextNum).padStart(5, "0")}`;
+  }
+  return candidate;
+}
+
+// Helper: Get weekday holidays for given year and month (holidays not falling on weekends)
+async function getWeekdayHolidays(year, month) {
+  const mm = String(month).padStart(2, "0");
+  const holidays = await Holiday.find({ date: { $regex: `^${year}-${mm}` } });
+  return holidays.filter((h) => {
+    const parts = h.date.split("-");
+    if (parts.length === 3) {
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const dow = d.getDay();
+      return dow !== 0 && dow !== 6; // Weekday only (Mon-Fri)
+    }
+    return false;
+  });
 }
 
 // Default settings
@@ -367,6 +469,23 @@ const DEFAULT_SETTINGS = {
 // ─── Initial Database Seeding ──────────────────────────────────────────────────
 async function seedInitialData() {
   try {
+    // Seed default company holidays if none exist
+    const holidayCount = await Holiday.countDocuments();
+    if (holidayCount === 0) {
+      await Holiday.insertMany([
+        { date: "2026-01-01", name: "New Year's Day", type: "public" },
+        { date: "2026-01-26", name: "Republic Day", type: "national" },
+        { date: "2026-03-04", name: "Holi Festival", type: "public" },
+        { date: "2026-05-01", name: "May Day / Labor Day", type: "public" },
+        { date: "2026-08-15", name: "Independence Day", type: "national" },
+        { date: "2026-10-02", name: "Gandhi Jayanti", type: "national" },
+        { date: "2026-10-20", name: "Dussehra", type: "public" },
+        { date: "2026-11-08", name: "Diwali", type: "public" },
+        { date: "2026-12-25", name: "Christmas Day", type: "public" },
+      ]);
+      console.log("✅ Seeded default company holidays");
+    }
+
     const empCount = await Employee.countDocuments();
     if (empCount > 0) return;
 
@@ -376,7 +495,7 @@ async function seedInitialData() {
 
     const sampleEmployees = await Employee.insertMany([
       {
-        employeeId: "EMP001",
+        employeeId: "DME00001",
         name: "Sarah Chen",
         email: "sarah.chen@payrollpro.io",
         personalEmail: "sarah.chen92@gmail.com",
@@ -398,7 +517,7 @@ async function seedInitialData() {
         status: "active",
       },
       {
-        employeeId: "EMP002",
+        employeeId: "DME00002",
         name: "David Miller",
         email: "david.miller@payrollpro.io",
         personalEmail: "david.m.design@gmail.com",
@@ -420,7 +539,7 @@ async function seedInitialData() {
         status: "active",
       },
       {
-        employeeId: "EMP003",
+        employeeId: "DME00003",
         name: "Priya Sharma",
         email: "priya.sharma@payrollpro.io",
         personalEmail: "priyasharma.hr@gmail.com",
@@ -442,7 +561,7 @@ async function seedInitialData() {
         status: "active",
       },
       {
-        employeeId: "EMP004",
+        employeeId: "DME00004",
         name: "Michael Scott",
         email: "michael.scott@payrollpro.io",
         personalEmail: "worldsbestboss@dundermifflin.com",
@@ -464,7 +583,7 @@ async function seedInitialData() {
         status: "active",
       },
       {
-        employeeId: "EMP005",
+        employeeId: "DME00005",
         name: "Ananya Roy",
         email: "ananya.roy@payrollpro.io",
         personalEmail: "ananya.dev@gmail.com",
@@ -749,14 +868,35 @@ app.get("/api/employees/:id/monthly-attendance", async (req, res) => {
       }
     });
 
+    // Weekday holidays count as working days (if not in weekend)
+    const weekdayHolidays = await getWeekdayHolidays(yy, mm);
+    weekdayHolidays.forEach((h) => {
+      const existing = dayMap.get(h.date);
+      if (!existing || existing.totalHours < 8) {
+        dayMap.set(h.date, {
+          date: h.date,
+          status: "holiday",
+          checkIn: existing?.checkIn || "",
+          checkOut: existing?.checkOut || "",
+          notes: `Public Holiday: ${h.name} (Paid Working Day)`,
+          loginTime: existing?.loginTime || "",
+          logoutTime: existing?.logoutTime || "",
+          totalHours: 8,
+          extraHours: 0,
+          source: "holiday",
+        });
+      }
+    });
+
     const STANDARD_HOURS = 8;
     const days = Array.from(dayMap.values())
       .map((d) => ({ ...d, extraHours: Math.max(0, Number((d.totalHours - STANDARD_HOURS).toFixed(2))) }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    const presentDays      = days.filter((d) => d.status === "present" || d.status === "late").length;
+    const presentDays      = days.filter((d) => d.status === "present" || d.status === "late" || d.status === "holiday").length;
     const absentDays       = days.filter((d) => d.status === "absent").length;
     const leaveDays        = days.filter((d) => d.status === "leave").length;
+    const holidayDays      = weekdayHolidays.length;
     const totalExtraHours  = days.reduce((sum, d) => sum + d.extraHours, 0);
     const totalWorkingHours = days.reduce((sum, d) => sum + d.totalHours, 0);
 
@@ -787,12 +927,23 @@ app.get("/api/employees/:id/monthly-attendance", async (req, res) => {
           presentDays,
           absentDays,
           leaveDays,
+          holidayDays,
           totalWorkingHours: Number(totalWorkingHours.toFixed(2)),
           totalExtraHours: Number(totalExtraHours.toFixed(2)),
           workingDaysInMonth,
         },
       },
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET preview of next employee ID
+app.get("/api/employees/next-id", async (req, res) => {
+  try {
+    const nextId = await generateEmployeeId();
+    res.json({ success: true, employeeId: nextId });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -812,10 +963,41 @@ app.get("/api/employees/:id", async (req, res) => {
   }
 });
 
+// POST upload avatar for employee
+app.post("/api/employees/:id/avatar", uploadAvatar.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No image file uploaded" });
+    }
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    const employee = await Employee.findByIdAndUpdate(
+      req.params.id,
+      { avatar: avatarUrl },
+      { new: true }
+    );
+    if (!employee) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+    res.json({
+      success: true,
+      data: { avatar: avatarUrl, employee },
+      message: "Avatar uploaded successfully",
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // POST create employee
 app.post("/api/employees", async (req, res) => {
   try {
-    const employee = new Employee(req.body);
+    const employeeData = { ...req.body };
+    // Ensure unique DME formatted ID (e.g. DME00010)
+    if (!employeeData.employeeId || employeeData.employeeId.startsWith("EMP") || employeeData.employeeId.trim() === "") {
+      employeeData.employeeId = await generateEmployeeId();
+    }
+
+    const employee = new Employee(employeeData);
     await employee.save();
 
     // Auto-generate login credentials for the new employee
@@ -994,6 +1176,15 @@ app.post("/api/payroll/generate-attendance-based", async (req, res) => {
       if (h > 0) hoursMap.set(r.date, h);
     });
 
+    // Holidays on weekdays count as working days (if not on a weekend)
+    const weekdayHolidays = await getWeekdayHolidays(year, month);
+    weekdayHolidays.forEach((h) => {
+      const existing = hoursMap.get(h.date) || 0;
+      if (existing < 8) {
+        hoursMap.set(h.date, 8); // Credit 8 hours for paid weekday holiday
+      }
+    });
+
     const actualHours = Array.from(hoursMap.values()).reduce((sum, h) => sum + h, 0);
 
     // Standard hours for the month (Mon–Fri × 8h)
@@ -1084,6 +1275,15 @@ app.get("/api/payroll/payslip/:employeeId/:year/:month", async (req, res) => {
     timeRecords.forEach((r) => {
       const h = r.totalHours || (r.loginTime && r.logoutTime ? calcHours(r.loginTime, r.logoutTime) : 0);
       if (h > 0) hoursMap.set(r.date, h);
+    });
+
+    // Holidays on weekdays count as working days (if not on a weekend)
+    const weekdayHolidays = await getWeekdayHolidays(year, month);
+    weekdayHolidays.forEach((h) => {
+      const existing = hoursMap.get(h.date) || 0;
+      if (existing < 8) {
+        hoursMap.set(h.date, 8); // Credit 8 hours for paid weekday holiday
+      }
     });
 
     const actualHours = Array.from(hoursMap.values()).reduce((sum, h) => sum + h, 0);
@@ -1601,6 +1801,78 @@ app.put("/api/hr-manager", async (req, res) => {
   }
 });
 
+// POST upload avatar for HR Manager
+app.post("/api/hr-manager/avatar", uploadAvatar.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No image file provided" });
+    }
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    let manager = await HRManager.findOne();
+    if (!manager) {
+      manager = await HRManager.create({ avatar: avatarUrl });
+    } else {
+      manager.avatar = avatarUrl;
+      await manager.save();
+    }
+    res.json({
+      success: true,
+      data: { avatar: avatarUrl, hrManager: manager },
+      message: "HR Manager avatar uploaded successfully",
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── Holiday Routes ───────────────────────────────────────────────────────────
+
+// GET all holidays (optionally filter by year or month)
+app.get("/api/holidays", async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const filter = {};
+    if (year && month) {
+      const mm = String(month).padStart(2, "0");
+      filter.date = { $regex: `^${year}-${mm}` };
+    } else if (year) {
+      filter.date = { $regex: `^${year}-` };
+    }
+    const holidays = await Holiday.find(filter).sort({ date: 1 });
+    res.json({ success: true, data: holidays, count: holidays.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST create holiday
+app.post("/api/holidays", async (req, res) => {
+  try {
+    const { date, name, type } = req.body;
+    if (!date || !name) {
+      return res.status(400).json({ success: false, message: "Date (YYYY-MM-DD) and holiday name are required" });
+    }
+    const holiday = new Holiday({ date, name, type: type || "public" });
+    await holiday.save();
+    res.status(201).json({ success: true, data: holiday, message: "Holiday created successfully" });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE holiday
+app.delete("/api/holidays/:id", async (req, res) => {
+  try {
+    const holiday = await Holiday.findByIdAndDelete(req.params.id);
+    if (!holiday) {
+      return res.status(404).json({ success: false, message: "Holiday not found" });
+    }
+    res.json({ success: true, message: "Holiday deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ─── Settings Routes ──────────────────────────────────────────────────────────
 
 // GET all settings
@@ -1757,6 +2029,16 @@ app.post("/api/auth/login", async (req, res) => {
       }
     }
 
+    // Start session
+    if (req.session) {
+      req.session.user = {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+        employee: user.employee,
+      };
+    }
+
     res.json({
       success: true,
       data: {
@@ -1771,6 +2053,66 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+// GET current session (checks session cookie & returns authenticated user)
+app.get("/api/auth/session", async (req, res) => {
+  try {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({
+        success: false,
+        authenticated: false,
+        message: "No active session",
+      });
+    }
+
+    const user = await User.findById(req.session.user._id)
+      .select("-passwordHash")
+      .populate("employee", "name designation department employeeId avatar");
+
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(401).json({
+        success: false,
+        authenticated: false,
+        message: "User not found or session expired",
+      });
+    }
+
+    req.session.user = {
+      _id: user._id,
+      email: user.email,
+      role: user.role,
+      employee: user.employee,
+    };
+
+    res.json({
+      success: true,
+      authenticated: true,
+      data: {
+        email: user.email,
+        role: user.role,
+        employee: user.employee,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST logout (destroys session and clears cookie)
+app.post("/api/auth/logout", (req, res) => {
+  if (req.session) {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "Could not log out" });
+      }
+      res.clearCookie("connect.sid");
+      return res.json({ success: true, message: "Logged out successfully" });
+    });
+  } else {
+    res.json({ success: true, message: "No active session" });
+  }
+});
+
 // GET all user accounts (admin reference)
 app.get("/api/users", async (req, res) => {
   try {
@@ -1779,6 +2121,61 @@ app.get("/api/users", async (req, res) => {
       .populate("employee", "name designation department employeeId")
       .sort({ createdAt: -1 });
     res.json({ success: true, data: users, count: users.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST change own password (requires current password)
+app.post("/api/auth/change-password", async (req, res) => {
+  try {
+    const { email, currentPassword, newPassword } = req.body;
+    if (!email || !currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: "Email, current password, and new password are required" });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "New password must be at least 8 characters" });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "No account found with this email" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect" });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ success: true, message: "Password changed successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST admin-initiated password reset (no current password needed)
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ success: false, message: "Email and new password are required" });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "New password must be at least 8 characters" });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "No account found with this email" });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ success: true, message: "Password has been reset successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

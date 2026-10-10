@@ -265,6 +265,8 @@ export default function Layout({ children }) {
     user?.employee?.name?.[0] || user?.email?.[0] || 'U'
   ).toUpperCase();
 
+  const userAvatar = user?.employee?.avatar || user?.avatar;
+
   const profileLink =
     user?.employee?._id ? `/employees/${user.employee._id}` : '/hr-manager';
 
@@ -324,7 +326,17 @@ export default function Layout({ children }) {
               id="nav-user-profile"
               title={`View ${displayName}'s profile`}
             >
-              <div className="avatar">{avatarLetter}</div>
+              <div className="avatar" style={{ padding: 0, overflow: 'hidden' }}>
+                {userAvatar ? (
+                  <img
+                    src={userAvatar.startsWith('http') ? userAvatar : `${API_BASE.replace('/api', '')}${userAvatar}`}
+                    alt={displayName}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  avatarLetter
+                )}
+              </div>
               <div className="footer-user-info">
                 <p className="footer-user-name" title={displayName}>{displayName}</p>
                 <span className="footer-user-role" title={displayRole}>{displayRole}</span>

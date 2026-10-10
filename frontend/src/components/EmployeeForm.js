@@ -52,6 +52,7 @@ const initialForm = {
   basicPay: '',
   allowances: '',
   deductions: '',
+  employeeId: '',
 };
 
 // ─── Credentials Modal Component ────────────────────────────────────────────────
@@ -95,6 +96,29 @@ function CredentialsModal({ credentials, onClose }) {
         </p>
 
         <div className="credentials-fields">
+          {credentials.employeeId && (
+            <div className="credentials-field-group">
+              <label className="credentials-label">Unique Employee ID</label>
+              <div className="credentials-field">
+                <input
+                  type="text"
+                  className="credentials-input"
+                  style={{ fontWeight: 700, color: '#a5b4fc', letterSpacing: '0.05em' }}
+                  value={credentials.employeeId}
+                  readOnly
+                />
+                <button
+                  className={`credentials-copy-btn ${copiedField === 'employeeId' ? 'copied' : ''}`}
+                  onClick={() => handleCopy(credentials.employeeId, 'employeeId')}
+                  title="Copy Employee ID"
+                >
+                  {copiedField === 'employeeId' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                  {copiedField === 'employeeId' ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="credentials-field-group">
             <label className="credentials-label">Email Address</label>
             <div className="credentials-field">
@@ -161,6 +185,7 @@ export default function EmployeeForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [credentialsModal, setCredentialsModal] = useState(null);
+  const [nextEmployeeId, setNextEmployeeId] = useState('');
 
   const fetchEmployee = useCallback(async () => {
     try {
@@ -187,6 +212,7 @@ export default function EmployeeForm() {
         basicPay: emp.basicPay ?? '',
         allowances: emp.allowances ?? '',
         deductions: emp.deductions ?? '',
+        employeeId: emp.employeeId || '',
       });
     } catch {
       setError('Could not load employee details.');
@@ -196,7 +222,18 @@ export default function EmployeeForm() {
   }, [id]);
 
   useEffect(() => {
-    if (isEdit) fetchEmployee();
+    if (isEdit) {
+      fetchEmployee();
+    } else {
+      // Fetch next available DME sequential ID
+      axios.get(`${API_BASE}/employees/next-id`)
+        .then((res) => {
+          if (res.data.success && res.data.employeeId) {
+            setNextEmployeeId(res.data.employeeId);
+          }
+        })
+        .catch(() => {});
+    }
   }, [isEdit, fetchEmployee]);
 
   const handleChange = (e) => {
@@ -249,7 +286,10 @@ export default function EmployeeForm() {
         const res = await axios.post(`${API_BASE}/employees`, payload);
         // Show credentials modal instead of redirecting
         if (res.data.credentials) {
-          setCredentialsModal(res.data.credentials);
+          setCredentialsModal({
+            ...res.data.credentials,
+            employeeId: res.data.data?.employeeId || nextEmployeeId,
+          });
         } else {
           setSuccess('Employee created successfully! Redirecting...');
           setTimeout(() => {
@@ -453,6 +493,34 @@ export default function EmployeeForm() {
             </div>
             <div className="card-body">
               <div className="form-grid">
+                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label" htmlFor="employeeId">
+                    Employee ID {isEdit ? '' : '(Auto-generated DME Format)'}
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      id="employeeId"
+                      name="employeeId"
+                      type="text"
+                      className="form-input"
+                      value={isEdit ? form.employeeId : (nextEmployeeId || 'Auto-assigned: e.g. DME00010')}
+                      readOnly
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        fontWeight: 700,
+                        letterSpacing: '0.05em',
+                        color: 'var(--color-primary-light, #818cf8)',
+                      }}
+                    />
+                    <span className="badge badge-purple" style={{ whiteSpace: 'nowrap', padding: '6px 12px' }}>
+                      {isEdit ? 'Assigned' : 'Unique ID (DME00000)'}
+                    </span>
+                  </div>
+                  <small style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, display: 'block' }}>
+                    Standard company format: <strong>DME00010</strong>. Guaranteed unique and assigned sequentially.
+                  </small>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label" htmlFor="designation">Job Title / Designation *</label>
                   <input

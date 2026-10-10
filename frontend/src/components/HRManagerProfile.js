@@ -7,7 +7,9 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
-  KeyRound
+  KeyRound,
+  Camera,
+  Loader2,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '../config';
@@ -30,7 +32,41 @@ export default function HRManagerProfile() {
     joiningDate: '2022-04-01',
     reportingTo: 'Chief Executive Officer (CEO)',
     bio: 'Overseeing talent acquisition, compensation & benefits, organizational development, and compliance across all company departments.',
+    avatar: '',
   });
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Avatar image size must be less than 2MB.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    setUploadingAvatar(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const res = await axios.post(`${API_BASE}/hr-manager/avatar`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success && res.data.data?.avatar) {
+        setForm((prev) => ({ ...prev, avatar: res.data.data.avatar }));
+        setSuccess('HR Manager avatar updated successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload HR Manager avatar.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -139,22 +175,71 @@ export default function HRManagerProfile() {
         {/* Hero Card */}
         <div className="card" style={{ marginBottom: 24, padding: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-            <div
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #7c3aed, #ec4899)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 32,
-                fontWeight: 700,
-                color: 'white',
-                boxShadow: '0 8px 24px rgba(124, 58, 237, 0.4)',
-              }}
-            >
-              {form.name ? form.name.charAt(0).toUpperCase() : 'A'}
+            <div style={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
+              <div
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #7c3aed, #ec4899)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: 'white',
+                  boxShadow: '0 8px 24px rgba(124, 58, 237, 0.4)',
+                  overflow: 'hidden',
+                  border: '2px solid rgba(255, 255, 255, 0.15)',
+                }}
+              >
+                {form.avatar ? (
+                  <img
+                    src={form.avatar.startsWith('http') ? form.avatar : `${API_BASE.replace('/api', '')}${form.avatar}`}
+                    alt={form.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  form.name ? form.name.charAt(0).toUpperCase() : 'A'
+                )}
+              </div>
+
+              {/* Upload Button Overlay */}
+              <label
+                htmlFor="hr-avatar-upload"
+                style={{
+                  position: 'absolute',
+                  bottom: -2,
+                  right: -2,
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: 'var(--color-primary, #6366f1)',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: uploadingAvatar ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                  border: '2px solid var(--color-bg, #0f172a)',
+                  transition: 'all 0.2s ease',
+                }}
+                title="Upload Profile Picture"
+              >
+                {uploadingAvatar ? (
+                  <Loader2 size={13} className="spin" />
+                ) : (
+                  <Camera size={13} />
+                )}
+                <input
+                  id="hr-avatar-upload"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarUpload}
+                  disabled={uploadingAvatar}
+                />
+              </label>
             </div>
 
             <div style={{ flex: 1, minWidth: 260 }}>

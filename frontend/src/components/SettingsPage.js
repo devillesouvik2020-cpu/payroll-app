@@ -8,7 +8,10 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
-  Plus
+  Plus,
+  Trash2,
+  Sun,
+  ShieldCheck,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '../config';
@@ -52,6 +55,10 @@ export default function SettingsPage() {
   });
 
   const [newDept, setNewDept] = useState('');
+  const [holidays, setHolidays] = useState([]);
+  const [newHolidayDate, setNewHolidayDate] = useState('');
+  const [newHolidayName, setNewHolidayName] = useState('');
+  const [holidaySaving, setHolidaySaving] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -68,9 +75,19 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const fetchHolidays = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/holidays`);
+      if (res.data.success && res.data.data) {
+        setHolidays(res.data.data);
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     fetchSettings();
-  }, [fetchSettings]);
+    fetchHolidays();
+  }, [fetchSettings, fetchHolidays]);
 
   const handleChange = (field, value) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
@@ -116,6 +133,40 @@ export default function SettingsPage() {
       departments: prev.departments.filter((d) => d !== dept),
     }));
     setSuccess('Department removed. Click Save Changes to apply.');
+  };
+
+  const handleAddHoliday = async (e) => {
+    e.preventDefault();
+    if (!newHolidayDate || !newHolidayName.trim()) return;
+    setHolidaySaving(true);
+    try {
+      const res = await axios.post(`${API_BASE}/holidays`, {
+        date: newHolidayDate,
+        name: newHolidayName.trim(),
+      });
+      if (res.data.success) {
+        setHolidays((prev) => [...prev, res.data.data].sort((a, b) => a.date.localeCompare(b.date)));
+        setNewHolidayDate('');
+        setNewHolidayName('');
+        setSuccess('Holiday added successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add holiday.');
+    } finally {
+      setHolidaySaving(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (id) => {
+    try {
+      await axios.delete(`${API_BASE}/holidays/${id}`);
+      setHolidays((prev) => prev.filter((h) => h._id !== id));
+      setSuccess('Holiday deleted successfully.');
+      setTimeout(() => setSuccess(''), 2500);
+    } catch (err) {
+      setError('Could not delete holiday.');
+    }
   };
 
   if (loading) {
@@ -417,6 +468,117 @@ export default function SettingsPage() {
                         onChange={(e) => handleChange('casualLeaves', e.target.value)}
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Company Holidays & Working Day Rule */}
+                <div className="card-header" style={{ borderTop: '1px solid var(--color-border)', marginTop: 24 }}>
+                  <div className="card-title-group">
+                    <Sun size={18} style={{ color: '#fbbf24' }} />
+                    <h3>Company Holidays & Working Day Rule</h3>
+                  </div>
+                  <span className="badge badge-purple">Salary Calculation</span>
+                </div>
+                <div className="card-body">
+                  <div style={{
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    background: 'rgba(129, 140, 248, 0.08)',
+                    border: '1px solid rgba(129, 140, 248, 0.25)',
+                    marginBottom: 20,
+                    fontSize: 13,
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.5,
+                  }}>
+                    <strong style={{ color: '#818cf8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <ShieldCheck size={16} /> Official Payroll Rule:
+                    </strong>
+                    Holidays that fall on a weekday (Monday to Friday) are officially <strong>counted as working days</strong> with full 8 hours credited in salary calculation. Employees receive complete salary without attendance deductions on weekday holidays. Holidays on weekends (Saturday/Sunday) remain regular non-working off days.
+                  </div>
+
+                  {/* Add Holiday Form */}
+                  <form onSubmit={handleAddHoliday} style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={newHolidayDate}
+                      onChange={(e) => setNewHolidayDate(e.target.value)}
+                      required
+                      style={{ maxWidth: 170 }}
+                    />
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Holiday Name (e.g. Independence Day)"
+                      value={newHolidayName}
+                      onChange={(e) => setNewHolidayName(e.target.value)}
+                      required
+                      style={{ flex: 1, minWidth: 200 }}
+                    />
+                    <button type="submit" className="btn btn-primary" disabled={holidaySaving}>
+                      <Plus size={15} /> Add Holiday
+                    </button>
+                  </form>
+
+                  {/* Holidays Table */}
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="table" style={{ width: '100%' }}>
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Holiday Name</th>
+                          <th>Day of Week</th>
+                          <th>Salary Rule Status</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {holidays.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
+                              No company holidays registered yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          holidays.map((h) => {
+                            const dateObj = new Date(h.date + 'T00:00:00');
+                            const dow = dateObj.getDay();
+                            const isWeekday = dow !== 0 && dow !== 6;
+                            const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+
+                            return (
+                              <tr key={h._id}>
+                                <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{h.date}</td>
+                                <td>{h.name}</td>
+                                <td style={{ color: 'var(--text-muted)' }}>{dayName}</td>
+                                <td>
+                                  {isWeekday ? (
+                                    <span className="badge badge-green" style={{ fontSize: 11 }}>
+                                      <span className="badge-dot" /> Paid Working Day (Counted in Salary)
+                                    </span>
+                                  ) : (
+                                    <span className="badge badge-gray" style={{ fontSize: 11 }}>
+                                      Weekend Off (Not Counted)
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-icon btn-sm"
+                                    onClick={() => handleDeleteHoliday(h._id)}
+                                    title="Delete holiday"
+                                    style={{ color: '#fb7185' }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>

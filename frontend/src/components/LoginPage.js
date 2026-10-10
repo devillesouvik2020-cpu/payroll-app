@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Briefcase,
   Mail,
@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Sparkles,
   Users,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -233,6 +234,13 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+
+        {/* Change Password link */}
+        <div className="login-forgot-row">
+          <Link to="/change-password" className="reset-back-link">
+            <KeyRound size={14} /> Forgot or change your password?
+          </Link>
+        </div>
 
         {/* Footer info */}
         <div className="login-card-footer">

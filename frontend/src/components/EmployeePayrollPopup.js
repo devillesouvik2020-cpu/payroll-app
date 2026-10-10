@@ -32,6 +32,7 @@ function statusColor(status) {
     case 'late': return { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', label: 'Late' };
     case 'absent': return { bg: 'rgba(251,113,133,0.12)', color: '#fb7185', label: 'Absent' };
     case 'leave': return { bg: 'rgba(129,140,248,0.12)', color: '#818cf8', label: 'Leave' };
+    case 'holiday': return { bg: 'rgba(167,139,250,0.15)', color: '#a78bfa', label: 'Paid Holiday' };
     default: return { bg: 'rgba(148,163,184,0.1)', color: '#94a3b8', label: status || '—' };
   }
 }

@@ -18,6 +18,7 @@ import SettingsPage from './components/SettingsPage';
 import HRManagerProfile from './components/HRManagerProfile';
 import MyPayslips from './components/MyPayslips';
 import MyAttendance from './components/MyAttendance';
+import ResetPassword from './components/ResetPassword';
 
 // Redirect to / if authenticated, else show login
 function PublicLoginRoute() {
@@ -39,6 +40,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicLoginRoute />} />
+      <Route path="/change-password" element={<ResetPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Always accessible when logged in */}
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

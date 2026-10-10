@@ -7,7 +7,10 @@ import {
   Edit2,
   ArrowLeft,
   AlertCircle,
-  CreditCard
+  CreditCard,
+  Camera,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '../config';
@@ -30,6 +33,40 @@ export default function EmployeeProfile() {
   const [activeTab, setActiveTab] = useState('personal'); // 'personal' | 'office' | 'job' | 'payroll'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarSuccess, setAvatarSuccess] = useState('');
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Avatar image size must be less than 2MB.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    setUploadingAvatar(true);
+    setError('');
+    setAvatarSuccess('');
+
+    try {
+      const res = await axios.post(`${API_BASE}/employees/${id}/avatar`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success && res.data.data?.avatar) {
+        setEmployee((prev) => ({ ...prev, avatar: res.data.data.avatar }));
+        setAvatarSuccess('Avatar updated successfully!');
+        setTimeout(() => setAvatarSuccess(''), 3000);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload avatar image.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const fetchDetails = useCallback(async () => {
     setLoading(true);
@@ -116,25 +153,81 @@ export default function EmployeeProfile() {
       </div>
 
       <div className="page-content fade-in" style={{ maxWidth: 1080, margin: '0 auto' }}>
+        {avatarSuccess && (
+          <div className="alert alert-success" style={{ marginBottom: 16 }}>
+            <CheckCircle2 size={16} />
+            <span>{avatarSuccess}</span>
+          </div>
+        )}
+
         {/* Top Hero Card */}
         <div className="card" style={{ marginBottom: 24, padding: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-            <div
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--color-primary), #3b82f6)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 28,
-                fontWeight: 700,
-                color: 'white',
-                boxShadow: '0 8px 24px rgba(124, 58, 237, 0.3)',
-              }}
-            >
-              {employee.name ? employee.name.charAt(0).toUpperCase() : 'E'}
+            <div style={{ position: 'relative', width: 76, height: 76, flexShrink: 0 }}>
+              <div
+                style={{
+                  width: 76,
+                  height: 76,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, var(--color-primary), #3b82f6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 28,
+                  fontWeight: 700,
+                  color: 'white',
+                  boxShadow: '0 8px 24px rgba(124, 58, 237, 0.3)',
+                  overflow: 'hidden',
+                  border: '2px solid rgba(255, 255, 255, 0.15)',
+                }}
+              >
+                {employee.avatar ? (
+                  <img
+                    src={employee.avatar.startsWith('http') ? employee.avatar : `${API_BASE.replace('/api', '')}${employee.avatar}`}
+                    alt={employee.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  employee.name ? employee.name.charAt(0).toUpperCase() : 'E'
+                )}
+              </div>
+
+              {/* Upload Button Overlay */}
+              <label
+                htmlFor="employee-avatar-upload"
+                style={{
+                  position: 'absolute',
+                  bottom: -2,
+                  right: -2,
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: 'var(--color-primary, #6366f1)',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: uploadingAvatar ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                  border: '2px solid var(--color-bg, #0f172a)',
+                  transition: 'all 0.2s ease',
+                }}
+                title="Upload Profile Picture"
+              >
+                {uploadingAvatar ? (
+                  <Loader2 size={13} className="spin" />
+                ) : (
+                  <Camera size={13} />
+                )}
+                <input
+                  id="employee-avatar-upload"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarUpload}
+                  disabled={uploadingAvatar}
+                />
+              </label>
             </div>
 
             <div style={{ flex: 1, minWidth: 240 }}>

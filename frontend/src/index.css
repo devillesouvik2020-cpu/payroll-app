@@ -2182,3 +2182,130 @@ tbody td {
 @keyframes ping {
   75%, 100% { transform: scale(2.2); opacity: 0; }
 }
+
+/* ─── Reset Password / Change Password Styles ──────────────────────────────── */
+
+/* Success Banner */
+.login-success-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  margin-bottom: 18px;
+  animation: cardFadeIn 0.35s ease;
+}
+
+.login-success-banner .success-icon {
+  color: #34d399;
+  flex-shrink: 0;
+}
+
+.login-success-banner .success-text {
+  font-size: 12.5px;
+  color: #6ee7b7;
+  line-height: 1.4;
+}
+
+/* Password Strength Indicator */
+.password-strength-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -6px;
+}
+
+.password-strength-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.password-strength-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+
+.password-strength-fill.strength-weak {
+  background: linear-gradient(90deg, #ef4444, #f97316);
+}
+
+.password-strength-fill.strength-medium {
+  background: linear-gradient(90deg, #f59e0b, #eab308);
+}
+
+.password-strength-fill.strength-strong {
+  background: linear-gradient(90deg, #22c55e, #10b981);
+}
+
+.password-strength-label {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.password-strength-label.strength-weak   { color: #f87171; }
+.password-strength-label.strength-medium { color: #fbbf24; }
+.password-strength-label.strength-strong { color: #34d399; }
+
+/* Password Requirements Checklist */
+.password-requirements {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: -4px;
+}
+
+.password-requirements .req-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: color 0.25s ease;
+}
+
+.password-requirements .req-item.met {
+  color: #34d399;
+}
+
+/* Forgot Password Link (on login page) */
+.login-forgot-row {
+  text-align: center;
+  margin-top: 16px;
+}
+
+/* Back to Sign In Link */
+.reset-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-primary-light, #a78bfa);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.reset-back-link:hover {
+  color: #c4b5fd;
+  text-decoration: underline;
+  gap: 8px;
+}
+
+/* ─── Avatar Upload Styles ─────────────────────────────────── */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.avatar-upload-trigger:hover {
+  transform: scale(1.1);
+  background: var(--color-primary-light, #818cf8) !important;
+}
+
+

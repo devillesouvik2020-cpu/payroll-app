@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_BASE } from '../config';
 
+axios.defaults.withCredentials = true;
+
 const AuthContext = createContext(null);
 
 // Permission definitions per role
@@ -75,6 +77,7 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(false);
 
+  // Sync state to localStorage
   useEffect(() => {
     if (user) {
       localStorage.setItem('payroll_user', JSON.stringify(user));
@@ -82,6 +85,29 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('payroll_user');
     }
   }, [user]);
+
+  // Check active server session on load
+  useEffect(() => {
+    let isMounted = true;
+    const checkSession = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/auth/session`);
+        if (isMounted && res.data.success && res.data.data) {
+          setUser(res.data.data);
+        }
+      } catch (err) {
+        if (isMounted && err.response && err.response.status === 401) {
+          // If server explicitly says no active session, clear user
+          setUser(null);
+          localStorage.removeItem('payroll_user');
+        }
+      }
+    };
+    checkSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const login = async (email, password) => {
     setLoading(true);
@@ -105,9 +131,15 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('payroll_user');
+  const logout = async () => {
+    try {
+      await axios.post(`${API_BASE}/auth/logout`);
+    } catch (err) {
+      console.warn('Logout server request failed:', err.message);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('payroll_user');
+    }
   };
 
   // Helper: check if current user has a permission

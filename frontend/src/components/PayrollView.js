@@ -449,6 +449,11 @@ function AttendanceBadge({ employeeId, month, year }) {
       <span style={{ fontSize: 12, fontWeight: 700, color: '#34d399' }}>
         {data.presentDays}/{data.workingDaysInMonth} days
       </span>
+      {data.holidayDays > 0 && (
+        <span style={{ fontSize: 10.5, color: '#a78bfa', fontWeight: 600 }}>
+          incl. {data.holidayDays} paid holiday{data.holidayDays > 1 ? 's' : ''}
+        </span>
+      )}
       {data.totalExtraHours > 0 && (
         <span style={{ fontSize: 11, color: '#fb923c' }}>+{data.totalExtraHours}h extra</span>
       )}
